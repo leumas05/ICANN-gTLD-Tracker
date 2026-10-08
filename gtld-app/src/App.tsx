@@ -352,7 +352,20 @@ const TldDetailsPanel = ({
             </h4>
             
             <div className="grid sm:grid-cols-2 gap-4">
-              {item.applicants.map((app, i) => (
+              {(() => {
+                const activePrimaryCount = item.applicants.filter(a => a.isPrimaryForThis && a.primary?.status === 'Active').length;
+                
+                return item.applicants.map((app, i) => {
+                const isOnlyPrimary = app.isPrimaryForThis && app.primary?.status === 'Active' && activePrimaryCount === 1;
+                const hasActiveReserve = app.replacement?.status === 'Active';
+                
+                const ringClass = isOnlyPrimary 
+                  ? (hasActiveReserve
+                      ? "ring-2 ring-sky-400 dark:ring-sky-400 shadow-[0_0_15px_rgba(56,189,248,0.3)] relative z-10"
+                      : "ring-2 ring-amber-400 dark:ring-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.35)] relative z-10")
+                  : "";
+
+                return (
                 <div 
                   key={i} 
                   className={cn(
@@ -361,7 +374,8 @@ const TldDetailsPanel = ({
                       ? "bg-white/50 dark:bg-emerald-900 shadow-sm border border-black/5 dark:border-emerald-700/50 dark:text-emerald-50"
                       : isDarkTextPanel 
                         ? "bg-white/50 dark:bg-slate-900/60 shadow-sm border border-black/5 dark:border-slate-700/50 dark:text-slate-100" 
-                        : "bg-white/10 dark:bg-slate-900/30 shadow-sm border border-white/10 backdrop-blur-sm"
+                        : "bg-white/10 dark:bg-slate-900/30 shadow-sm border border-white/10 backdrop-blur-sm",
+                    ringClass
                   )}
                 >
                   <div 
@@ -461,7 +475,9 @@ const TldDetailsPanel = ({
                     </div>
                   )}
                 </div>
-              ))}
+              );
+            });
+          })()}
             </div>
           </div>
         </div>
@@ -1231,13 +1247,23 @@ export default function App() {
                         {applicantTlds.map(item => {
                           const colors = ColorMap[item.color];
                           const appInfo = item.applicants.find(a => a.applicantName === applicantName)!;
+                          const activePrimaryCount = item.applicants.filter(a => a.isPrimaryForThis && a.primary?.status === 'Active').length;
+                          const isOnlyPrimary = appInfo.isPrimaryForThis && appInfo.primary?.status === 'Active' && activePrimaryCount === 1;
+                          const hasActiveReserve = appInfo.replacement?.status === 'Active';
+
+                          const ringClass = isOnlyPrimary 
+                            ? (hasActiveReserve
+                                ? "ring-2 ring-sky-400 dark:ring-sky-400 shadow-[0_0_15px_rgba(56,189,248,0.3)] relative z-10"
+                                : "ring-2 ring-amber-400 dark:ring-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.35)] relative z-10")
+                            : "";
                           
                           return (
                             <div 
                               key={item.tld}
                               className={cn(
                                 "rounded-2xl p-4 flex flex-col shadow-sm border transition-all hover:scale-[1.02] cursor-pointer",
-                                colors.bg, colors.text, colors.border
+                                colors.bg, colors.text, colors.border,
+                                ringClass
                               )}
                               onClick={() => {
                                  handleOpenTldPopup(item.tld);
