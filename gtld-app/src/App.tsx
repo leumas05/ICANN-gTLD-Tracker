@@ -273,14 +273,16 @@ const TldDetailsPanel = ({
   onOpenPopup,
   onApplicantClick,
   onBack,
-  hasBack
+  hasBack,
+  previousPopup
 }: { 
   item: TldInfo, 
   onClose: () => void,
   onOpenPopup: (tld: string) => void,
   onApplicantClick: (applicant: string) => void,
   onBack?: () => void,
-  hasBack?: boolean
+  hasBack?: boolean,
+  previousPopup?: { type: 'tld' | 'applicant', id: string } | null
 }) => {
   const panelColors = ColorMap[item.color];
   const isDarkTextPanel = item.color === 'LightGreen' || item.color === 'Yellow';
@@ -362,7 +364,20 @@ const TldDetailsPanel = ({
                         : "bg-white/10 dark:bg-slate-900/30 shadow-sm border border-white/10 backdrop-blur-sm"
                   )}
                 >
-                  <div className="font-bold text-lg mb-3 cursor-pointer group/app inline-flex items-center gap-1.5 w-fit" onClick={() => onApplicantClick(app.applicantName)} title="Klicka för att se fler ansökningar från den här sökanden"><span className="border-b border-transparent group-hover/app:border-current transition-colors">{app.applicantName}</span><Search size={14} className="opacity-0 group-hover/app:opacity-60 transition-opacity" /></div>
+                  <div 
+                    className={cn(
+                      "font-bold text-lg mb-3 cursor-pointer group/app inline-flex items-center gap-1.5 w-fit",
+                      (previousPopup?.type === 'applicant' && previousPopup.id === app.applicantName) || 
+                      (previousPopup?.type === 'tld' && (app.primary?.tld === previousPopup.id || app.replacement?.tld === previousPopup.id))
+                        ? "!text-fuchsia-600 dark:!text-fuchsia-400" 
+                        : ""
+                    )} 
+                    onClick={() => onApplicantClick(app.applicantName)} 
+                    title="Klicka för att se fler ansökningar från den här sökanden"
+                  >
+                    <span className="border-b border-transparent group-hover/app:border-current transition-colors">{app.applicantName}</span>
+                    <Search size={14} className="opacity-0 group-hover/app:opacity-60 transition-opacity" />
+                  </div>
                   
                   {/* Badges for THIS TLD */}
                   <div className="flex flex-col gap-2.5">
@@ -415,7 +430,10 @@ const TldDetailsPanel = ({
                     >
                       <div>
                         <span className="font-semibold text-[10px] uppercase tracking-widest block mb-0.5 opacity-70">Sökandens Reserv</span>
-                        <span className="font-bold text-base">{app.replacement.tld}</span> 
+                        <span className={cn(
+                          "font-bold text-base",
+                          previousPopup?.type === 'tld' && previousPopup.id === app.replacement.tld ? "!text-fuchsia-600 dark:!text-fuchsia-400" : ""
+                        )}>{app.replacement.tld}</span> 
                         <span className="opacity-80 ml-2">({app.replacement.status})</span>
                       </div>
                       <ArrowRight size={16} className="opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -433,7 +451,10 @@ const TldDetailsPanel = ({
                     >
                       <div>
                         <span className="font-semibold text-[10px] uppercase tracking-widest block mb-0.5 opacity-70">Sökandens Förstaval</span>
-                        <span className="font-bold text-base">{app.primary.tld}</span> 
+                        <span className={cn(
+                          "font-bold text-base",
+                          previousPopup?.type === 'tld' && previousPopup.id === app.primary.tld ? "!text-fuchsia-600 dark:!text-fuchsia-400" : ""
+                        )}>{app.primary.tld}</span> 
                         <span className="opacity-80 ml-2">({app.primary.status})</span>
                       </div>
                       <ArrowRight size={16} className="opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -487,9 +508,25 @@ export default function App() {
   const [popupHistory, setPopupHistory] = useState<PopupState[]>([]);
   
   const currentPopup = popupHistory.length > 0 ? popupHistory[popupHistory.length - 1] : null;
+  const previousPopup = popupHistory.length > 1 ? popupHistory[popupHistory.length - 2] : null;
 
-  const handleOpenTldPopup = (tld: string) => setPopupHistory(prev => [...prev, { type: 'tld', id: tld }]);
-  const handleOpenApplicantPopup = (applicantName: string) => setPopupHistory(prev => [...prev, { type: 'applicant', id: applicantName }]);
+  const handleOpenTldPopup = (tld: string) => {
+    setPopupHistory(prev => {
+      if (prev.length === 0 && expandedTld) {
+        return [{ type: 'tld', id: expandedTld }, { type: 'tld', id: tld }];
+      }
+      return [...prev, { type: 'tld', id: tld }];
+    });
+  };
+
+  const handleOpenApplicantPopup = (applicantName: string) => {
+    setPopupHistory(prev => {
+      if (prev.length === 0 && expandedTld) {
+        return [{ type: 'tld', id: expandedTld }, { type: 'applicant', id: applicantName }];
+      }
+      return [...prev, { type: 'applicant', id: applicantName }];
+    });
+  };
   const handleClosePopup = () => setPopupHistory([]);
   const handleBackPopup = () => setPopupHistory(prev => prev.slice(0, -1));
   const [isPrivacyOpen, setIsPrivacyOpen] = useState(false);
@@ -1000,6 +1037,7 @@ export default function App() {
                   onApplicantClick={handleOpenApplicantPopup}
                   hasBack={popupHistory.length > 1}
                   onBack={handleBackPopup}
+                  previousPopup={previousPopup}
                 />
               </div>
             </div>
@@ -1063,7 +1101,17 @@ export default function App() {
                         }}
                       >
                         <div className="flex justify-between items-start mb-4">
-                          <h3 className="text-xl font-bold tracking-tight truncate" title={item.tld}>{item.tld}</h3>
+                          <h3 
+                            className={cn(
+                              "text-xl font-bold tracking-tight truncate", 
+                              previousPopup?.type === 'tld' && previousPopup.id === item.tld 
+                                ? (colors.text === 'text-white' ? "!text-fuchsia-200" : "!text-fuchsia-700") 
+                                : ""
+                            )} 
+                            title={item.tld}
+                          >
+                            {item.tld}
+                          </h3>
                           <span className="text-[9px] font-bold uppercase tracking-widest opacity-80 bg-black/10 px-2 py-1 rounded-md">
                             {colors.label}
                           </span>
