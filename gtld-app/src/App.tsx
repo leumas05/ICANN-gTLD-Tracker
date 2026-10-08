@@ -266,6 +266,58 @@ const SORT_LABELS: Record<SortOption, string> = {
   'length-asc': 'Längd (Kortast först)'
 };
 
+type ApplicantSortOption = 'name-asc' | 'name-desc' | 'length-desc' | 'length-asc' | 'color';
+const APPLICANT_SORT_LABELS: Record<ApplicantSortOption, string> = {
+  'name-asc': 'Namn (A-Ö)',
+  'name-desc': 'Namn (Ö-A)',
+  'length-desc': 'Längd (Längst först)',
+  'length-asc': 'Längd (Kortast först)',
+  'color': 'Status (Färgkod)'
+};
+
+function getApplicantOutline(item: TldInfo, applicantName: string): 'gold' | 'blue' | 'red' | 'none' {
+  if (item.color !== 'DarkGreen' && item.color !== 'LightGreen') return 'none';
+  const appInfo = item.applicants.find(a => a.applicantName === applicantName);
+  if (!appInfo) return 'none';
+  const activePrimaries = item.applicants.filter(a => a.isPrimaryForThis && a.primary?.status === 'Active');
+  const activeReserves = item.applicants.filter(a => a.isReplacementForThis && a.replacement?.status === 'Active');
+  const isMatchAmongPrimaries = activePrimaries.length > 0;
+  let isOnlyOneLeft = false;
+  let isOtherActive = false;
+  let cannotWin = false;
+  if (isMatchAmongPrimaries) {
+    isOnlyOneLeft = activePrimaries.length === 1 && appInfo.isPrimaryForThis && appInfo.primary?.status === 'Active';
+    isOtherActive = appInfo.replacement?.status === 'Active';
+    cannotWin = !appInfo.isPrimaryForThis || appInfo.primary?.status !== 'Active';
+  } else {
+    isOnlyOneLeft = activeReserves.length === 1 && appInfo.isReplacementForThis && appInfo.replacement?.status === 'Active';
+    isOtherActive = appInfo.primary?.status === 'Active';
+    cannotWin = false;
+  }
+  if (isOnlyOneLeft) return isOtherActive ? 'blue' : 'gold';
+  if (cannotWin) return 'red';
+  return 'none';
+}
+
+const ToggleCheckbox = ({ checked, onChange, label, className }: { checked: boolean, onChange: (val: boolean) => void, label: string, className?: string }) => (
+  <label className={cn("flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-slate-300 cursor-pointer group select-none", className)}>
+    <div className={cn(
+      "w-4 h-4 rounded border flex items-center justify-center transition-all shrink-0",
+      checked
+        ? "bg-indigo-600 border-indigo-600 text-white shadow-sm" 
+        : "bg-white dark:bg-slate-900 border-gray-300 dark:border-slate-600 text-transparent group-hover:border-indigo-400"
+    )}>
+      <Check size={12} strokeWidth={4} className={cn("transition-transform", checked ? "scale-100" : "scale-0")} />
+    </div>
+    <input 
+      type="checkbox" 
+      checked={checked} 
+      onChange={(e) => onChange(e.target.checked)}
+      className="sr-only"
+    />
+    <span className="truncate">{label}</span>
+  </label>
+);
 
 const TldDetailsPanel = ({ 
   item, 
@@ -274,7 +326,9 @@ const TldDetailsPanel = ({
   onApplicantClick,
   onBack,
   hasBack,
-  previousPopup
+  previousPopup,
+  showOutlines,
+  setShowOutlines
 }: { 
   item: TldInfo, 
   onClose: () => void,
@@ -282,7 +336,9 @@ const TldDetailsPanel = ({
   onApplicantClick: (applicant: string) => void,
   onBack?: () => void,
   hasBack?: boolean,
-  previousPopup?: { type: 'tld' | 'applicant', id: string } | null
+  previousPopup?: { type: 'tld' | 'applicant', id: string } | null,
+  showOutlines: boolean,
+  setShowOutlines: (val: boolean) => void
 }) => {
   const panelColors = ColorMap[item.color];
   const isDarkTextPanel = item.color === 'LightGreen' || item.color === 'Yellow';
@@ -315,16 +371,26 @@ const TldDetailsPanel = ({
              )}
              <h2 className="text-4xl md:text-5xl font-bold tracking-tight">{item.tld}</h2>
            </div>
-           <button 
-             onClick={onClose}
-             className={cn(
-               "p-2.5 rounded-full transition-colors duration-200 flex items-center justify-center shrink-0",
-               isDarkTextPanel ? "bg-black/5 hover:bg-black/10" : "bg-white/10 dark:bg-slate-900/10 hover:bg-white/20 dark:bg-slate-900/20"
-             )}
-             aria-label="Stäng"
-           >
-             <X size={28} />
-           </button>
+           <div className="flex items-center gap-4">
+             <div className={cn("hidden sm:flex border-r pr-4", isDarkTextPanel ? "border-black/10" : "border-white/10 dark:border-slate-700")}>
+               <ToggleCheckbox 
+                 checked={showOutlines} 
+                 onChange={setShowOutlines} 
+                 label="Visa ramar" 
+                 className="!text-current dark:!text-current" 
+               />
+             </div>
+             <button 
+               onClick={onClose}
+               className={cn(
+                 "p-2.5 rounded-full transition-colors duration-200 flex items-center justify-center shrink-0",
+                 isDarkTextPanel ? "bg-black/5 hover:bg-black/10" : "bg-white/10 dark:bg-slate-900/10 hover:bg-white/20 dark:bg-slate-900/20"
+               )}
+               aria-label="Stäng"
+             >
+               <X size={28} />
+             </button>
+           </div>
         </div>
 
         <div className="grid lg:grid-cols-[1fr_2fr] gap-8">
@@ -353,20 +419,33 @@ const TldDetailsPanel = ({
             
             <div className="grid sm:grid-cols-2 gap-4">
               {(() => {
-                const activePrimaryCount = item.applicants.filter(a => a.isPrimaryForThis && a.primary?.status === 'Active').length;
+                const activePrimaries = item.applicants.filter(a => a.isPrimaryForThis && a.primary?.status === 'Active');
+                const activeReserves = item.applicants.filter(a => a.isReplacementForThis && a.replacement?.status === 'Active');
+                const isMatchAmongPrimaries = activePrimaries.length > 0;
                 
                 return item.applicants.map((app, i) => {
-                const isOnlyPrimary = app.isPrimaryForThis && app.primary?.status === 'Active' && activePrimaryCount === 1;
-                const hasActiveReserve = app.replacement?.status === 'Active';
-                const cannotWin = (item.color === 'DarkGreen' || item.color === 'LightGreen') && 
-                                  (!app.isPrimaryForThis || app.primary?.status !== 'Active');
-                
-                const ringClass = isOnlyPrimary 
-                  ? (hasActiveReserve
-                      ? "ring-2 ring-sky-400 dark:ring-sky-400 shadow-[0_0_15px_rgba(56,189,248,0.3)] relative z-10"
-                      : "ring-2 ring-amber-400 dark:ring-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.35)] relative z-10")
-                  : cannotWin
-                    ? "ring-2 ring-red-500 dark:ring-red-500 shadow-[0_0_15px_rgba(239,68,68,0.25)] relative z-10"
+                  let isOnlyOneLeft = false;
+                  let isOtherActive = false;
+                  let cannotWin = false;
+
+                  if (isMatchAmongPrimaries) {
+                    isOnlyOneLeft = activePrimaries.length === 1 && app.isPrimaryForThis && app.primary?.status === 'Active';
+                    isOtherActive = app.replacement?.status === 'Active';
+                    cannotWin = !app.isPrimaryForThis || app.primary?.status !== 'Active';
+                  } else {
+                    isOnlyOneLeft = activeReserves.length === 1 && app.isReplacementForThis && app.replacement?.status === 'Active';
+                    isOtherActive = app.primary?.status === 'Active';
+                    cannotWin = false;
+                  }
+                  
+                  const ringClass = (showOutlines && (item.color === 'DarkGreen' || item.color === 'LightGreen'))
+                    ? (isOnlyOneLeft 
+                        ? (isOtherActive
+                            ? "ring-2 ring-sky-400 dark:ring-sky-400 shadow-[0_0_15px_rgba(56,189,248,0.3)] relative z-10"
+                            : "ring-2 ring-amber-400 dark:ring-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.35)] relative z-10")
+                        : cannotWin
+                          ? "ring-2 ring-red-500 dark:ring-red-500 shadow-[0_0_15px_rgba(239,68,68,0.25)] relative z-10"
+                          : "")
                     : "";
 
                 return (
@@ -525,6 +604,31 @@ export default function App() {
 
   const [applicantSearch, setApplicantSearch] = useState('');
   const [showApplicantDropdown, setShowApplicantDropdown] = useState(false);
+
+  const [applicantSortOption, setApplicantSortOption] = useState<ApplicantSortOption>('color');
+  const [showApplicantSortDropdown, setShowApplicantSortDropdown] = useState(false);
+  const [applicantSortGrouped, setApplicantSortGrouped] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('applicantSortGrouped') === 'true';
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('applicantSortGrouped', String(applicantSortGrouped));
+  }, [applicantSortGrouped]);
+
+  const [showOutlines, setShowOutlines] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('showOutlines');
+      return saved !== null ? saved === 'true' : true;
+    }
+    return true;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('showOutlines', String(showOutlines));
+  }, [showOutlines]);
 
   const [expandedTld, setExpandedTld] = useState<string | null>(null);
   type PopupState = { type: 'tld' | 'applicant', id: string };
@@ -812,6 +916,8 @@ export default function App() {
                 onClose={() => setExpandedTld(null)}
                 onOpenPopup={handleOpenTldPopup}
                 onApplicantClick={handleOpenApplicantPopup}
+                showOutlines={showOutlines}
+                setShowOutlines={setShowOutlines}
               />
             </div>
           )}
@@ -819,7 +925,7 @@ export default function App() {
       );
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, expandedTld]);
+  }, [rows, expandedTld, showOutlines]);
 
   if (typeof window !== 'undefined' && window.location.pathname !== '/' && window.location.pathname !== '/index.html' && window.location.pathname !== '/404.html') {
     return (
@@ -1078,13 +1184,21 @@ export default function App() {
                 )}
               </div>
 
-              {/* Sort Dropdown */}
-              <div className="relative shrink-0">
-                <button 
-                  onClick={() => setShowSortDropdown(!showSortDropdown)}
-                  className="px-4 py-1.5 rounded-full text-sm font-medium transition-colors border bg-white dark:bg-slate-900 text-gray-700 dark:text-slate-300 border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-800 flex items-center gap-2 shadow-sm"
-                >
-                  <ArrowDownUp size={16} className="opacity-70" />
+              {/* Checkbox and Sort Dropdown */}
+              <div className="flex items-center gap-4 shrink-0">
+                <div className="hidden sm:flex border-r border-gray-200 dark:border-slate-700 pr-4">
+                  <ToggleCheckbox 
+                    checked={showOutlines} 
+                    onChange={setShowOutlines} 
+                    label="Visa ramar" 
+                  />
+                </div>
+                <div className="relative shrink-0">
+                  <button 
+                    onClick={() => setShowSortDropdown(!showSortDropdown)}
+                    className="px-4 py-1.5 rounded-full text-sm font-medium transition-colors border bg-white dark:bg-slate-900 text-gray-700 dark:text-slate-300 border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-800 flex items-center gap-2 shadow-sm"
+                  >
+                    <ArrowDownUp size={16} className="opacity-70" />
                   {SORT_LABELS[sortOption]}
                   <ChevronDown size={14} className={cn("opacity-70 transition-transform", showSortDropdown && "rotate-180")} />
                 </button>
@@ -1114,6 +1228,7 @@ export default function App() {
                     </div>
                   </>
                 )}
+                </div>
               </div>
             </div>
           </div>
@@ -1198,6 +1313,8 @@ export default function App() {
                         hasBack={index > 0}
                         onBack={handleBackPopup}
                         previousPopup={prevPopup}
+                        showOutlines={showOutlines}
+                        setShowOutlines={setShowOutlines}
                       />
                     </div>
                   </div>
@@ -1208,6 +1325,38 @@ export default function App() {
             if (popup.type === 'applicant') {
               const applicantName = popup.id;
               const applicantTlds = data.filter(tld => tld.applicants.some(a => a.applicantName === applicantName));
+              
+              applicantTlds.sort((a, b) => {
+                if (applicantSortOption !== 'color' && applicantSortGrouped) {
+                  const colorRank = { 'DarkGreen': 1, 'LightGreen': 2, 'Yellow': 3, 'DarkYellow': 4, 'Red': 5 };
+                  if (colorRank[a.color] !== colorRank[b.color]) {
+                    return colorRank[a.color] - colorRank[b.color];
+                  }
+                }
+
+                switch (applicantSortOption) {
+                  case 'name-desc': return b.tld.localeCompare(a.tld);
+                  case 'length-desc': return Array.from(b.tld).length - Array.from(a.tld).length || a.tld.localeCompare(b.tld);
+                  case 'length-asc': return Array.from(a.tld).length - Array.from(b.tld).length || a.tld.localeCompare(b.tld);
+                  case 'color': {
+                    const colorRank = { 'DarkGreen': 1, 'LightGreen': 2, 'Yellow': 3, 'DarkYellow': 4, 'Red': 5 };
+                    if (colorRank[a.color] !== colorRank[b.color]) {
+                      return colorRank[a.color] - colorRank[b.color];
+                    }
+                    if (a.color === 'DarkGreen' || a.color === 'LightGreen') {
+                      const outlineRank = { 'gold': 1, 'blue': 2, 'none': 3, 'red': 4 };
+                      const outlineA = getApplicantOutline(a, applicantName);
+                      const outlineB = getApplicantOutline(b, applicantName);
+                      if (outlineRank[outlineA] !== outlineRank[outlineB]) {
+                        return outlineRank[outlineA] - outlineRank[outlineB];
+                      }
+                    }
+                    return a.tld.localeCompare(b.tld);
+                  }
+                  case 'name-asc':
+                  default: return a.tld.localeCompare(b.tld);
+                }
+              });
               
               return (
                 <div 
@@ -1222,7 +1371,7 @@ export default function App() {
                     onClick={e => e.stopPropagation()}
                   >
                     <div className="flex items-center justify-between p-6 md:px-8 md:pt-8 md:pb-6 border-b border-gray-100 dark:border-slate-800 shrink-0">
-                      <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-4 min-w-0">
                         {index > 0 && (
                           <button
                             onClick={handleBackPopup}
@@ -1233,17 +1382,70 @@ export default function App() {
                             <ArrowLeft size={24} />
                           </button>
                         )}
-                        <div>
-                          <h2 className="text-2xl font-bold text-gray-900 dark:text-slate-100">{applicantName}</h2>
+                        <div className="min-w-0">
+                          <h2 className="text-2xl font-bold text-gray-900 dark:text-slate-100 truncate" title={applicantName}>{applicantName}</h2>
                           <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">{applicantTlds.length} {applicantTlds.length === 1 ? 'ansökan' : 'ansökningar'}</p>
                         </div>
                       </div>
-                      <button 
-                        onClick={handleClosePopup}
-                        className="p-2 -mr-2 rounded-full hover:bg-gray-100 dark:bg-slate-800 transition-colors"
-                      >
-                        <X size={24} className="text-gray-500 dark:text-slate-400" />
-                      </button>
+                      <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+                        <div className="hidden sm:flex items-center gap-4 border-r border-gray-200 dark:border-slate-700 pr-4">
+                          <ToggleCheckbox 
+                            checked={showOutlines} 
+                            onChange={setShowOutlines} 
+                            label="Visa ramar" 
+                          />
+                          {applicantSortOption !== 'color' && (
+                            <ToggleCheckbox 
+                              checked={applicantSortGrouped} 
+                              onChange={setApplicantSortGrouped} 
+                              label="Gruppera efter färg" 
+                            />
+                          )}
+                        </div>
+                        <div className="relative shrink-0">
+                          <button 
+                            onClick={() => setShowApplicantSortDropdown(!showApplicantSortDropdown)}
+                            className="px-4 py-1.5 rounded-full text-sm font-medium transition-colors border bg-white dark:bg-slate-900 text-gray-700 dark:text-slate-300 border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-800 flex items-center gap-2 shadow-sm"
+                          >
+                            <ArrowDownUp size={16} className="opacity-70" />
+                            <span className="hidden sm:inline">{APPLICANT_SORT_LABELS[applicantSortOption]}</span>
+                            <ChevronDown size={14} className={cn("opacity-70 transition-transform", showApplicantSortDropdown && "rotate-180")} />
+                          </button>
+                          
+                          {showApplicantSortDropdown && (
+                            <>
+                              <div className="fixed inset-0 z-10" onClick={() => setShowApplicantSortDropdown(false)} />
+                              <div className="absolute z-20 right-0 top-full mt-2 w-64 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-gray-200/60 dark:border-slate-700/60 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] p-1.5 animate-in fade-in zoom-in-95 duration-100">
+                                {(Object.entries(APPLICANT_SORT_LABELS) as [ApplicantSortOption, string][]).map(([key, label]) => (
+                                  <button
+                                    key={key}
+                                    className={cn(
+                                      "w-full text-left px-3 py-2.5 rounded-xl text-sm font-medium transition-colors flex items-center justify-between mb-0.5 last:mb-0",
+                                      applicantSortOption === key 
+                                        ? "bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300" 
+                                        : "hover:bg-gray-50 dark:hover:bg-slate-800/50 text-gray-700 dark:text-slate-300"
+                                    )}
+                                    onClick={() => {
+                                      setApplicantSortOption(key as ApplicantSortOption);
+                                      setShowApplicantSortDropdown(false);
+                                    }}
+                                  >
+                                    {label}
+                                    {applicantSortOption === key && <Check size={16} />}
+                                  </button>
+                                ))}
+                              </div>
+                            </>
+                          )}
+                        </div>
+
+                        <button 
+                          onClick={handleClosePopup}
+                          className="p-2 -mr-2 rounded-full hover:bg-gray-100 dark:bg-slate-800 transition-colors"
+                        >
+                          <X size={24} className="text-gray-500 dark:text-slate-400" />
+                        </button>
+                      </div>
                     </div>
                     
                     <div className="p-6 md:p-8 overflow-y-auto flex-1 w-full bg-gray-50 dark:bg-slate-800">
@@ -1251,19 +1453,34 @@ export default function App() {
                         {applicantTlds.map(item => {
                           const colors = ColorMap[item.color];
                           const appInfo = item.applicants.find(a => a.applicantName === applicantName)!;
-                          const activePrimaryCount = item.applicants.filter(a => a.isPrimaryForThis && a.primary?.status === 'Active').length;
-                          const isOnlyPrimary = appInfo.isPrimaryForThis && appInfo.primary?.status === 'Active' && activePrimaryCount === 1;
-                          const hasActiveReserve = appInfo.replacement?.status === 'Active';
-                          const cannotWin = (item.color === 'DarkGreen' || item.color === 'LightGreen') && 
-                                            (!appInfo.isPrimaryForThis || appInfo.primary?.status !== 'Active');
+                          
+                          const activePrimaries = item.applicants.filter(a => a.isPrimaryForThis && a.primary?.status === 'Active');
+                          const activeReserves = item.applicants.filter(a => a.isReplacementForThis && a.replacement?.status === 'Active');
+                          const isMatchAmongPrimaries = activePrimaries.length > 0;
+                          
+                          let isOnlyOneLeft = false;
+                          let isOtherActive = false;
+                          let cannotWin = false;
 
-                          const ringClass = isOnlyPrimary 
-                            ? (hasActiveReserve
-                                ? "ring-2 ring-sky-400 dark:ring-sky-400 shadow-[0_0_15px_rgba(56,189,248,0.3)] relative z-10"
-                                : "ring-2 ring-amber-400 dark:ring-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.35)] relative z-10")
-                            : cannotWin
-                              ? "ring-2 ring-red-500 dark:ring-red-500 shadow-[0_0_15px_rgba(239,68,68,0.25)] relative z-10"
-                              : "";
+                          if (isMatchAmongPrimaries) {
+                            isOnlyOneLeft = activePrimaries.length === 1 && appInfo.isPrimaryForThis && appInfo.primary?.status === 'Active';
+                            isOtherActive = appInfo.replacement?.status === 'Active';
+                            cannotWin = !appInfo.isPrimaryForThis || appInfo.primary?.status !== 'Active';
+                          } else {
+                            isOnlyOneLeft = activeReserves.length === 1 && appInfo.isReplacementForThis && appInfo.replacement?.status === 'Active';
+                            isOtherActive = appInfo.primary?.status === 'Active';
+                            cannotWin = false;
+                          }
+
+                          const ringClass = (showOutlines && (item.color === 'DarkGreen' || item.color === 'LightGreen'))
+                            ? (isOnlyOneLeft 
+                                ? (isOtherActive
+                                    ? "ring-2 ring-sky-400 dark:ring-sky-400 shadow-[0_0_15px_rgba(56,189,248,0.3)] relative z-10"
+                                    : "ring-2 ring-amber-400 dark:ring-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.35)] relative z-10")
+                                : cannotWin
+                                  ? "ring-2 ring-red-500 dark:ring-red-500 shadow-[0_0_15px_rgba(239,68,68,0.25)] relative z-10"
+                                  : "")
+                            : "";
                           
                           return (
                             <div 
