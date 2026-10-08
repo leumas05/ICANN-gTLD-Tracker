@@ -676,13 +676,33 @@ export default function App() {
 
   const availableApplicants = useMemo(() => {
     const s = new Set<string>();
-    data.forEach(item => {
+    
+    let relevantData = data;
+    if (activeFilters.size > 0) {
+      relevantData = relevantData.filter(item => 
+        item.allTypes.some(t => activeFilters.has(t as FilterType))
+      );
+    }
+    
+    if (activeColors.size > 0) {
+      relevantData = relevantData.filter(item => activeColors.has(item.color));
+    }
+
+    relevantData.forEach(item => {
       item.applicants.forEach(a => {
-        if (a.applicantName) s.add(a.applicantName);
+        if (a.applicantName) {
+          if (activeRegions.size > 0) {
+            if (activeRegions.has(a.region) || activeRegions.has(a.location)) {
+              s.add(a.applicantName);
+            }
+          } else {
+            s.add(a.applicantName);
+          }
+        }
       });
     });
     return Array.from(s).sort();
-  }, [data]);
+  }, [data, activeFilters, activeColors, activeRegions]);
 
   const filteredApplicants = useMemo(() => {
     if (!applicantSearch.trim()) return availableApplicants;
