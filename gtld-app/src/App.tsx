@@ -707,6 +707,17 @@ export default function App() {
             {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
           </button>
 
+          <a
+            href="https://newgtldprogram-aps.icann.org/applications"
+            target="_blank"
+            rel="noreferrer"
+            className="px-4 py-2 bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-300 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700 transition flex items-center gap-2 font-medium text-sm shadow-sm border border-gray-200 dark:border-slate-700"
+            title="Gå till ICANNs ansökningsportal"
+          >
+            <ExternalLink size={16} />
+            ICANN Portalen
+          </a>
+
           <label className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition cursor-pointer flex items-center gap-2 font-medium text-sm shadow-sm">
             <Upload size={16} />
             Ladda upp CSV
