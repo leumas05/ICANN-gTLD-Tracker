@@ -1096,7 +1096,7 @@ export default function App() {
             TLD.S4m.dev
           </a>
           {' '}och{' '}
-          <a href="https://s4m.dev" target="_blank" rel="noreferrer" className="text-indigo-600 hover:text-indigo-800 transition-colors font-medium">
+          <a href="https://www.s4m.dev/" target="_blank" rel="noreferrer" className="text-indigo-600 hover:text-indigo-800 transition-colors font-medium">
             S4m.dev
           </a>
           .
