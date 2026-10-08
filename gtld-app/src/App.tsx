@@ -358,12 +358,16 @@ const TldDetailsPanel = ({
                 return item.applicants.map((app, i) => {
                 const isOnlyPrimary = app.isPrimaryForThis && app.primary?.status === 'Active' && activePrimaryCount === 1;
                 const hasActiveReserve = app.replacement?.status === 'Active';
+                const cannotWin = (item.color === 'DarkGreen' || item.color === 'LightGreen') && 
+                                  (!app.isPrimaryForThis || app.primary?.status !== 'Active');
                 
                 const ringClass = isOnlyPrimary 
                   ? (hasActiveReserve
                       ? "ring-2 ring-sky-400 dark:ring-sky-400 shadow-[0_0_15px_rgba(56,189,248,0.3)] relative z-10"
                       : "ring-2 ring-amber-400 dark:ring-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.35)] relative z-10")
-                  : "";
+                  : cannotWin
+                    ? "ring-2 ring-red-500 dark:ring-red-500 shadow-[0_0_15px_rgba(239,68,68,0.25)] relative z-10"
+                    : "";
 
                 return (
                 <div 
@@ -1250,12 +1254,16 @@ export default function App() {
                           const activePrimaryCount = item.applicants.filter(a => a.isPrimaryForThis && a.primary?.status === 'Active').length;
                           const isOnlyPrimary = appInfo.isPrimaryForThis && appInfo.primary?.status === 'Active' && activePrimaryCount === 1;
                           const hasActiveReserve = appInfo.replacement?.status === 'Active';
+                          const cannotWin = (item.color === 'DarkGreen' || item.color === 'LightGreen') && 
+                                            (!appInfo.isPrimaryForThis || appInfo.primary?.status !== 'Active');
 
                           const ringClass = isOnlyPrimary 
                             ? (hasActiveReserve
                                 ? "ring-2 ring-sky-400 dark:ring-sky-400 shadow-[0_0_15px_rgba(56,189,248,0.3)] relative z-10"
                                 : "ring-2 ring-amber-400 dark:ring-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.35)] relative z-10")
-                            : "";
+                            : cannotWin
+                              ? "ring-2 ring-red-500 dark:ring-red-500 shadow-[0_0_15px_rgba(239,68,68,0.25)] relative z-10"
+                              : "";
                           
                           return (
                             <div 
