@@ -483,13 +483,15 @@ export default function App() {
   const [showSortDropdown, setShowSortDropdown] = useState(false);
 
   const [expandedTld, setExpandedTld] = useState<string | null>(null);
-  const [modalHistory, setModalHistory] = useState<string[]>([]);
-  const modalTld = modalHistory.length > 0 ? modalHistory[modalHistory.length - 1] : null;
+  type PopupState = { type: 'tld' | 'applicant', id: string };
+  const [popupHistory, setPopupHistory] = useState<PopupState[]>([]);
+  
+  const currentPopup = popupHistory.length > 0 ? popupHistory[popupHistory.length - 1] : null;
 
-  const handleOpenPopup = (tld: string) => setModalHistory(prev => [...prev, tld]);
-  const handleClosePopup = () => setModalHistory([]);
-  const handleBackPopup = () => setModalHistory(prev => prev.slice(0, -1));
-  const [selectedApplicant, setSelectedApplicant] = useState<string | null>(null);
+  const handleOpenTldPopup = (tld: string) => setPopupHistory(prev => [...prev, { type: 'tld', id: tld }]);
+  const handleOpenApplicantPopup = (applicantName: string) => setPopupHistory(prev => [...prev, { type: 'applicant', id: applicantName }]);
+  const handleClosePopup = () => setPopupHistory([]);
+  const handleBackPopup = () => setPopupHistory(prev => prev.slice(0, -1));
   const [isPrivacyOpen, setIsPrivacyOpen] = useState(false);
   const [privacyPolicy, setPrivacyPolicy] = useState('');
   const cols = useColumnCount();
@@ -704,8 +706,8 @@ export default function App() {
               <TldDetailsPanel 
                 item={expandedItemInRow} 
                 onClose={() => setExpandedTld(null)}
-                onOpenPopup={handleOpenPopup}
-                onApplicantClick={setSelectedApplicant}
+                onOpenPopup={handleOpenTldPopup}
+                onApplicantClick={handleOpenApplicantPopup}
               />
             </div>
           )}
@@ -976,9 +978,9 @@ export default function App() {
         </div>
       )}
 
-      {/* Modal Popup for navigating to linked TLDs */}
-      {modalTld && (() => {
-        const tldData = data.find(d => d.tld === modalTld);
+      {/* Popups */}
+      {currentPopup && currentPopup.type === 'tld' && (() => {
+        const tldData = data.find(d => d.tld === currentPopup.id);
         if (!tldData) return null;
         
         return (
@@ -994,9 +996,9 @@ export default function App() {
                 <TldDetailsPanel 
                   item={tldData} 
                   onClose={handleClosePopup}
-                  onOpenPopup={handleOpenPopup} 
-                  onApplicantClick={setSelectedApplicant}
-                  hasBack={modalHistory.length > 1}
+                  onOpenPopup={handleOpenTldPopup} 
+                  onApplicantClick={handleOpenApplicantPopup}
+                  hasBack={popupHistory.length > 1}
                   onBack={handleBackPopup}
                 />
               </div>
@@ -1005,26 +1007,38 @@ export default function App() {
         );
       })()}
 
-      {/* Applicant Details Modal */}
-      {selectedApplicant && (() => {
-        const applicantTlds = data.filter(tld => tld.applicants.some(a => a.applicantName === selectedApplicant));
+      {currentPopup && currentPopup.type === 'applicant' && (() => {
+        const applicantName = currentPopup.id;
+        const applicantTlds = data.filter(tld => tld.applicants.some(a => a.applicantName === applicantName));
         
         return (
           <div 
-            className="fixed inset-0 z-[70] flex items-center justify-center p-4 md:p-8 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" 
-            onClick={() => setSelectedApplicant(null)}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-8 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" 
+            onClick={handleClosePopup}
           >
             <div 
               className="w-full max-w-4xl bg-white dark:bg-slate-900 rounded-3xl shadow-2xl max-h-full flex flex-col overflow-hidden"
               onClick={e => e.stopPropagation()}
             >
               <div className="flex items-center justify-between p-6 md:px-8 md:pt-8 md:pb-6 border-b border-gray-100 dark:border-slate-800 shrink-0">
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-slate-100">{selectedApplicant}</h2>
-                  <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">{applicantTlds.length} {applicantTlds.length === 1 ? 'ansökan' : 'ansökningar'}</p>
+                <div className="flex items-center gap-4">
+                  {popupHistory.length > 1 && (
+                    <button
+                      onClick={handleBackPopup}
+                      className="p-2.5 rounded-full transition-colors duration-200 flex items-center justify-center shrink-0 bg-gray-100 hover:bg-gray-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-gray-700 dark:text-slate-300"
+                      aria-label="Tillbaka"
+                      title="Gå tillbaka"
+                    >
+                      <ArrowLeft size={24} />
+                    </button>
+                  )}
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-slate-100">{applicantName}</h2>
+                    <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">{applicantTlds.length} {applicantTlds.length === 1 ? 'ansökan' : 'ansökningar'}</p>
+                  </div>
                 </div>
                 <button 
-                  onClick={() => setSelectedApplicant(null)}
+                  onClick={handleClosePopup}
                   className="p-2 -mr-2 rounded-full hover:bg-gray-100 dark:bg-slate-800 transition-colors"
                 >
                   <X size={24} className="text-gray-500 dark:text-slate-400" />
@@ -1035,7 +1049,7 @@ export default function App() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                   {applicantTlds.map(item => {
                     const colors = ColorMap[item.color];
-                    const appInfo = item.applicants.find(a => a.applicantName === selectedApplicant)!;
+                    const appInfo = item.applicants.find(a => a.applicantName === applicantName)!;
                     
                     return (
                       <div 
@@ -1045,8 +1059,7 @@ export default function App() {
                           colors.bg, colors.text, colors.border
                         )}
                         onClick={() => {
-                           setSelectedApplicant(null);
-                           handleOpenPopup(item.tld);
+                           handleOpenTldPopup(item.tld);
                         }}
                       >
                         <div className="flex justify-between items-start mb-4">
