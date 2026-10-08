@@ -753,6 +753,31 @@ export default function App() {
     });
   }, [rows, expandedTld]);
 
+  if (typeof window !== 'undefined' && window.location.pathname !== '/' && window.location.pathname !== '/index.html' && window.location.pathname !== '/404.html') {
+    return (
+      <div className="min-h-screen p-6 max-w-7xl mx-auto font-sans flex flex-col items-center justify-center text-center relative overflow-hidden">
+        <div className="absolute inset-0 pointer-events-none flex justify-center items-center">
+           <div className="w-96 h-96 bg-indigo-500/20 dark:bg-indigo-500/10 blur-[100px] rounded-full" />
+        </div>
+        
+        <h1 className="text-9xl font-black text-transparent bg-clip-text bg-gradient-to-br from-indigo-600 to-fuchsia-600 dark:from-indigo-400 dark:to-fuchsia-400 mb-4 drop-shadow-sm relative z-10">
+          404
+        </h1>
+        <h2 className="text-4xl font-bold text-gray-900 dark:text-slate-100 mb-6 tracking-tight relative z-10">Sidan hittades inte</h2>
+        <p className="text-gray-500 dark:text-slate-400 max-w-md mx-auto mb-12 text-lg leading-relaxed relative z-10">
+          Det verkar som att du har navigerat till en adress som inte existerar. 
+        </p>
+        <a 
+          href="/" 
+          className="px-8 py-3.5 bg-indigo-600 text-white rounded-2xl hover:bg-indigo-700 transition-all font-semibold shadow-lg hover:shadow-indigo-500/25 hover:-translate-y-1 flex items-center gap-2 group relative z-10"
+        >
+          <ArrowLeft size={20} className="transition-transform group-hover:-translate-x-1" />
+          Tillbaka till startsidan
+        </a>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen p-6 max-w-7xl mx-auto font-sans">
       <header className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
