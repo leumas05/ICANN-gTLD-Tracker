@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import Papa from 'papaparse';
-import { Search, Info, Upload, X, Filter, Palette, ExternalLink, ArrowRight, Sun, Moon, ArrowDownUp, ChevronDown, Check } from 'lucide-react';
+import { Search, Info, Upload, X, Filter, Palette, ExternalLink, ArrowRight, ArrowLeft, Sun, Moon, ArrowDownUp, ChevronDown, Check } from 'lucide-react';
 import clsx from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -271,12 +271,16 @@ const TldDetailsPanel = ({
   item, 
   onClose, 
   onOpenPopup,
-  onApplicantClick
+  onApplicantClick,
+  onBack,
+  hasBack
 }: { 
   item: TldInfo, 
   onClose: () => void,
   onOpenPopup: (tld: string) => void,
-  onApplicantClick: (applicant: string) => void
+  onApplicantClick: (applicant: string) => void,
+  onBack?: () => void,
+  hasBack?: boolean
 }) => {
   const panelColors = ColorMap[item.color];
   const isDarkTextPanel = item.color === 'LightGreen' || item.color === 'Yellow';
@@ -293,7 +297,22 @@ const TldDetailsPanel = ({
       
       <div className="relative z-10">
         <div className="flex items-center justify-between mb-8">
-           <h2 className="text-4xl md:text-5xl font-bold tracking-tight">{item.tld}</h2>
+           <div className="flex items-center gap-4">
+             {hasBack && onBack && (
+               <button
+                 onClick={onBack}
+                 className={cn(
+                   "p-2.5 rounded-full transition-colors duration-200 flex items-center justify-center shrink-0",
+                   isDarkTextPanel ? "bg-black/5 hover:bg-black/10" : "bg-white/10 dark:bg-slate-900/10 hover:bg-white/20 dark:bg-slate-900/20"
+                 )}
+                 aria-label="Tillbaka"
+                 title="Gå tillbaka"
+               >
+                 <ArrowLeft size={28} />
+               </button>
+             )}
+             <h2 className="text-4xl md:text-5xl font-bold tracking-tight">{item.tld}</h2>
+           </div>
            <button 
              onClick={onClose}
              className={cn(
@@ -464,7 +483,12 @@ export default function App() {
   const [showSortDropdown, setShowSortDropdown] = useState(false);
 
   const [expandedTld, setExpandedTld] = useState<string | null>(null);
-  const [modalTld, setModalTld] = useState<string | null>(null);
+  const [modalHistory, setModalHistory] = useState<string[]>([]);
+  const modalTld = modalHistory.length > 0 ? modalHistory[modalHistory.length - 1] : null;
+
+  const handleOpenPopup = (tld: string) => setModalHistory(prev => [...prev, tld]);
+  const handleClosePopup = () => setModalHistory([]);
+  const handleBackPopup = () => setModalHistory(prev => prev.slice(0, -1));
   const [selectedApplicant, setSelectedApplicant] = useState<string | null>(null);
   const [isPrivacyOpen, setIsPrivacyOpen] = useState(false);
   const [privacyPolicy, setPrivacyPolicy] = useState('');
@@ -488,7 +512,7 @@ export default function App() {
       const text = evt.target?.result as string;
       setData(parseData(text));
       setExpandedTld(null);
-      setModalTld(null);
+      handleClosePopup();
     };
     reader.readAsText(file);
   };
@@ -680,7 +704,7 @@ export default function App() {
               <TldDetailsPanel 
                 item={expandedItemInRow} 
                 onClose={() => setExpandedTld(null)}
-                onOpenPopup={setModalTld}
+                onOpenPopup={handleOpenPopup}
                 onApplicantClick={setSelectedApplicant}
               />
             </div>
@@ -960,7 +984,7 @@ export default function App() {
         return (
           <div 
             className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-8 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" 
-            onClick={() => setModalTld(null)}
+            onClick={handleClosePopup}
           >
             <div 
               className="w-full max-w-5xl max-h-full rounded-3xl shadow-2xl overflow-hidden flex flex-col bg-white dark:bg-slate-900"
@@ -969,9 +993,11 @@ export default function App() {
               <div className="overflow-y-auto w-full h-full">
                 <TldDetailsPanel 
                   item={tldData} 
-                  onClose={() => setModalTld(null)}
-                  onOpenPopup={setModalTld} 
+                  onClose={handleClosePopup}
+                  onOpenPopup={handleOpenPopup} 
                   onApplicantClick={setSelectedApplicant}
+                  hasBack={modalHistory.length > 1}
+                  onBack={handleBackPopup}
                 />
               </div>
             </div>
@@ -1020,7 +1046,7 @@ export default function App() {
                         )}
                         onClick={() => {
                            setSelectedApplicant(null);
-                           setModalTld(item.tld);
+                           handleOpenPopup(item.tld);
                         }}
                       >
                         <div className="flex justify-between items-start mb-4">
