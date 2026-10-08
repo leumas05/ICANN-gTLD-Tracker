@@ -503,6 +503,9 @@ export default function App() {
   const [sortOption, setSortOption] = useState<SortOption>('default');
   const [showSortDropdown, setShowSortDropdown] = useState(false);
 
+  const [applicantSearch, setApplicantSearch] = useState('');
+  const [showApplicantDropdown, setShowApplicantDropdown] = useState(false);
+
   const [expandedTld, setExpandedTld] = useState<string | null>(null);
   type PopupState = { type: 'tld' | 'applicant', id: string };
   const [popupHistory, setPopupHistory] = useState<PopupState[]>([]);
@@ -671,6 +674,22 @@ export default function App() {
     return availableRegions.filter(r => r.toLowerCase().includes(q)).slice(0, 10);
   }, [availableRegions, regionSearch]);
 
+  const availableApplicants = useMemo(() => {
+    const s = new Set<string>();
+    data.forEach(item => {
+      item.applicants.forEach(a => {
+        if (a.applicantName) s.add(a.applicantName);
+      });
+    });
+    return Array.from(s).sort();
+  }, [data]);
+
+  const filteredApplicants = useMemo(() => {
+    if (!applicantSearch.trim()) return availableApplicants;
+    const q = applicantSearch.toLowerCase();
+    return availableApplicants.filter(a => a.toLowerCase().includes(q));
+  }, [availableApplicants, applicantSearch]);
+
   const rows = useMemo(() => {
     const r = [];
     for (let i = 0; i < filteredData.length; i += cols) {
@@ -836,34 +855,80 @@ export default function App() {
             )}
           </div>
           <div className="flex flex-col gap-3">
-            {/* TLD Type Filters */}
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="w-6 flex justify-center"><Filter size={16} className="text-gray-400 dark:text-slate-500" /></div>
-              <button 
-                onClick={() => setActiveFilters(new Set())}
-                className={cn(
-                  "px-4 py-1.5 rounded-full text-sm font-medium transition-colors border",
-                  activeFilters.size === 0 
-                    ? "bg-gray-800 dark:bg-slate-700 text-white border-gray-800 dark:border-slate-600 shadow-sm" 
-                    : "bg-white dark:bg-slate-900 text-gray-600 dark:text-slate-400 border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:bg-slate-800"
-                )}
-              >
-                Alla Typer
-              </button>
-              {ALL_FILTERS.map(f => (
+            {/* TLD Type Filters & Applicant Dropdown */}
+            <div className="flex flex-wrap sm:flex-nowrap items-start justify-between gap-4 w-full relative z-30">
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="w-6 flex justify-center"><Filter size={16} className="text-gray-400 dark:text-slate-500" /></div>
                 <button 
-                  key={f}
-                  onClick={() => toggleFilter(f)}
+                  onClick={() => setActiveFilters(new Set())}
                   className={cn(
                     "px-4 py-1.5 rounded-full text-sm font-medium transition-colors border",
-                    activeFilters.has(f)
-                      ? "bg-indigo-600 text-white border-indigo-600 shadow-sm" 
+                    activeFilters.size === 0 
+                      ? "bg-gray-800 dark:bg-slate-700 text-white border-gray-800 dark:border-slate-600 shadow-sm" 
                       : "bg-white dark:bg-slate-900 text-gray-600 dark:text-slate-400 border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:bg-slate-800"
                   )}
                 >
-                  {f}
+                  Alla Typer
                 </button>
-              ))}
+                {ALL_FILTERS.map(f => (
+                  <button 
+                    key={f}
+                    onClick={() => toggleFilter(f)}
+                    className={cn(
+                      "px-4 py-1.5 rounded-full text-sm font-medium transition-colors border",
+                      activeFilters.has(f)
+                        ? "bg-indigo-600 text-white border-indigo-600 shadow-sm" 
+                        : "bg-white dark:bg-slate-900 text-gray-600 dark:text-slate-400 border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:bg-slate-800"
+                    )}
+                  >
+                    {f}
+                  </button>
+                ))}
+              </div>
+
+              {/* Applicant Dropdown */}
+              <div className="relative shrink-0 w-full sm:w-64">
+                <div className="relative">
+                  <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-slate-500" />
+                  <input 
+                    type="text" 
+                    placeholder="Välj företag/sökande..." 
+                    className="w-full pl-9 pr-8 py-2 rounded-xl text-sm font-medium border border-gray-200 dark:border-slate-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-slate-900"
+                    value={applicantSearch}
+                    onChange={(e) => { setApplicantSearch(e.target.value); setShowApplicantDropdown(true); }}
+                    onFocus={() => setShowApplicantDropdown(true)}
+                    onBlur={() => setTimeout(() => setShowApplicantDropdown(false), 200)}
+                  />
+                  {applicantSearch && (
+                    <button 
+                      onClick={() => setApplicantSearch('')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-slate-500 hover:text-gray-600 dark:hover:text-slate-300 p-0.5 rounded-full"
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+                
+                {showApplicantDropdown && filteredApplicants.length > 0 && (
+                  <div className="absolute right-0 mt-2 w-full sm:w-96 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-gray-200/60 dark:border-slate-700/60 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] max-h-72 overflow-y-auto p-1.5 animate-in fade-in zoom-in-95 duration-100 z-50">
+                    {filteredApplicants.map(a => (
+                      <div 
+                        key={a}
+                        className="group px-3 py-2.5 hover:bg-indigo-50/80 dark:hover:bg-indigo-900/50 text-gray-700 dark:text-slate-300 hover:text-indigo-900 dark:hover:text-indigo-100 cursor-pointer text-sm font-medium transition-all rounded-xl mb-0.5 last:mb-0 flex items-center gap-2"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          handleOpenApplicantPopup(a);
+                          setApplicantSearch('');
+                          setShowApplicantDropdown(false);
+                        }}
+                      >
+                        <div className="w-1.5 h-1.5 rounded-full bg-indigo-300 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                        <span className="truncate">{a}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Color/Status Filters */}
@@ -916,7 +981,7 @@ export default function App() {
                       {filteredRegions.map(r => (
                         <div 
                           key={r}
-                          className="group px-3 py-2.5 hover:bg-indigo-50/80 dark:bg-indigo-900/50/80 text-gray-700 dark:text-slate-300 hover:text-indigo-900 dark:text-indigo-100 cursor-pointer text-sm font-medium transition-all rounded-xl mb-0.5 last:mb-0 flex items-center gap-2"
+                          className="group px-3 py-2.5 hover:bg-indigo-50/80 dark:hover:bg-indigo-900/50 text-gray-700 dark:text-slate-300 hover:text-indigo-900 dark:hover:text-indigo-100 cursor-pointer text-sm font-medium transition-all rounded-xl mb-0.5 last:mb-0 flex items-center gap-2"
                           onMouseDown={(e) => {
                             e.preventDefault();
                             setActiveRegions(prev => {
