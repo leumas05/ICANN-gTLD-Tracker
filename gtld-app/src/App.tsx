@@ -67,8 +67,8 @@ interface TldInfo {
     region: string;
     isPrimaryForThis: boolean;
     isReplacementForThis: boolean;
-    primary: { tld: string, status: string, types: string[], appId: string } | null;
-    replacement: { tld: string, status: string, types: string[], appId: string } | null;
+    primary: { tld: string, status: string, types: string[], allTypes: string[], appId: string } | null;
+    replacement: { tld: string, status: string, types: string[], allTypes: string[], appId: string } | null;
   }[];
 }
 
@@ -171,8 +171,8 @@ const parseData = (csvText: string): TldInfo[] => {
       region: app.region,
       isPrimaryForThis: app.primary?.tld === tld,
       isReplacementForThis: app.replacement?.tld === tld,
-      primary: app.primary ? { tld: app.primary.tld, status: app.primary.status, types: app.primary.types, appId: app.primary.appId } : null,
-      replacement: app.replacement ? { tld: app.replacement.tld, status: app.replacement.status, types: app.replacement.types, appId: app.replacement.appId } : null,
+      primary: app.primary ? { tld: app.primary.tld, status: app.primary.status, types: app.primary.types, allTypes: app.primary.allTypes, appId: app.primary.appId } : null,
+      replacement: app.replacement ? { tld: app.replacement.tld, status: app.replacement.status, types: app.replacement.types, allTypes: app.replacement.allTypes, appId: app.replacement.appId } : null,
     }));
 
     const tldAllTypes = new Set<string>();
@@ -548,6 +548,17 @@ export default function App() {
     }
   }, [isPrivacyOpen, privacyPolicy]);
 
+  useEffect(() => {
+    if (currentPopup !== null || isPrivacyOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [currentPopup, isPrivacyOpen]);
+
     const processFile = (file: File) => {
     const reader = new FileReader();
     reader.onload = (evt) => {
@@ -606,18 +617,19 @@ export default function App() {
   const filteredData = useMemo(() => {
     let result = data;
     
-    if (activeFilters.size > 0) {
+    if (activeFilters.size > 0 || activeRegions.size > 0) {
       result = result.filter(item => 
-        item.allTypes.some(t => activeFilters.has(t as FilterType))
+        item.applicants.some(a => {
+          const matchesRegion = activeRegions.size === 0 || activeRegions.has(a.region) || activeRegions.has(a.location);
+          const applicantTypes = new Set<string>();
+          if (a.isPrimaryForThis && a.primary) a.primary.allTypes.forEach(t => applicantTypes.add(t));
+          if (a.isReplacementForThis && a.replacement) a.replacement.allTypes.forEach(t => applicantTypes.add(t));
+          const matchesType = activeFilters.size === 0 || Array.from(applicantTypes).some(t => activeFilters.has(t as FilterType));
+          return matchesRegion && matchesType;
+        })
       );
     }
 
-
-    if (activeRegions.size > 0) {
-      result = result.filter(item => 
-        item.applicants.some(a => activeRegions.has(a.region) || activeRegions.has(a.location))
-      );
-    }
     if (activeColors.size > 0) {
       result = result.filter(item => activeColors.has(item.color));
     }
@@ -678,11 +690,6 @@ export default function App() {
     const s = new Set<string>();
     
     let relevantData = data;
-    if (activeFilters.size > 0) {
-      relevantData = relevantData.filter(item => 
-        item.allTypes.some(t => activeFilters.has(t as FilterType))
-      );
-    }
     
     if (activeColors.size > 0) {
       relevantData = relevantData.filter(item => activeColors.has(item.color));
@@ -691,11 +698,13 @@ export default function App() {
     relevantData.forEach(item => {
       item.applicants.forEach(a => {
         if (a.applicantName) {
-          if (activeRegions.size > 0) {
-            if (activeRegions.has(a.region) || activeRegions.has(a.location)) {
-              s.add(a.applicantName);
-            }
-          } else {
+          const matchesRegion = activeRegions.size === 0 || activeRegions.has(a.region) || activeRegions.has(a.location);
+          const applicantTypes = new Set<string>();
+          if (a.isPrimaryForThis && a.primary) a.primary.allTypes.forEach(t => applicantTypes.add(t));
+          if (a.isReplacementForThis && a.replacement) a.replacement.allTypes.forEach(t => applicantTypes.add(t));
+          const matchesType = activeFilters.size === 0 || Array.from(applicantTypes).some(t => activeFilters.has(t as FilterType));
+          
+          if (matchesRegion && matchesType) {
             s.add(a.applicantName);
           }
         }
@@ -790,6 +799,7 @@ export default function App() {
         </React.Fragment>
       );
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rows, expandedTld]);
 
   if (typeof window !== 'undefined' && window.location.pathname !== '/' && window.location.pathname !== '/index.html' && window.location.pathname !== '/404.html') {
