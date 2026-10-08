@@ -511,7 +511,6 @@ export default function App() {
   const [popupHistory, setPopupHistory] = useState<PopupState[]>([]);
   
   const currentPopup = popupHistory.length > 0 ? popupHistory[popupHistory.length - 1] : null;
-  const previousPopup = popupHistory.length > 1 ? popupHistory[popupHistory.length - 2] : null;
 
   const handleOpenTldPopup = (tld: string) => {
     setPopupHistory(prev => {
@@ -1145,130 +1144,149 @@ export default function App() {
       )}
 
       {/* Popups */}
-      {currentPopup && currentPopup.type === 'tld' && (() => {
-        const tldData = data.find(d => d.tld === currentPopup.id);
-        if (!tldData) return null;
-        
-        return (
-          <div 
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-8 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" 
-            onClick={handleClosePopup}
-          >
-            <div 
-              className="w-full max-w-5xl max-h-full rounded-3xl shadow-2xl overflow-hidden flex flex-col bg-white dark:bg-slate-900"
-              onClick={e => e.stopPropagation()}
-            >
-              <div className="overflow-y-auto w-full h-full">
-                <TldDetailsPanel 
-                  item={tldData} 
-                  onClose={handleClosePopup}
-                  onOpenPopup={handleOpenTldPopup} 
-                  onApplicantClick={handleOpenApplicantPopup}
-                  hasBack={popupHistory.length > 1}
-                  onBack={handleBackPopup}
-                  previousPopup={previousPopup}
-                />
-              </div>
-            </div>
-          </div>
-        );
-      })()}
-
-      {currentPopup && currentPopup.type === 'applicant' && (() => {
-        const applicantName = currentPopup.id;
-        const applicantTlds = data.filter(tld => tld.applicants.some(a => a.applicantName === applicantName));
-        
-        return (
-          <div 
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-8 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" 
-            onClick={handleClosePopup}
-          >
-            <div 
-              className="w-full max-w-4xl bg-white dark:bg-slate-900 rounded-3xl shadow-2xl max-h-full flex flex-col overflow-hidden"
-              onClick={e => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between p-6 md:px-8 md:pt-8 md:pb-6 border-b border-gray-100 dark:border-slate-800 shrink-0">
-                <div className="flex items-center gap-4">
-                  {popupHistory.length > 1 && (
-                    <button
-                      onClick={handleBackPopup}
-                      className="p-2.5 rounded-full transition-colors duration-200 flex items-center justify-center shrink-0 bg-gray-100 hover:bg-gray-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-gray-700 dark:text-slate-300"
-                      aria-label="Tillbaka"
-                      title="Gå tillbaka"
-                    >
-                      <ArrowLeft size={24} />
-                    </button>
+      {popupHistory.length > 0 && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" 
+          onClick={handleClosePopup}
+        >
+          {popupHistory.map((popup, index) => {
+            const isActive = index === popupHistory.length - 1;
+            const prevPopup = index > 0 ? popupHistory[index - 1] : null;
+            
+            if (popup.type === 'tld') {
+              const tldData = data.find(d => d.tld === popup.id);
+              if (!tldData) return null;
+              
+              return (
+                <div 
+                  key={`tld-${index}-${popup.id}`}
+                  className={cn(
+                    "absolute inset-0 flex items-center justify-center p-4 md:p-8 transition-opacity duration-200",
+                    isActive ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
                   )}
-                  <div>
-                    <h2 className="text-2xl font-bold text-gray-900 dark:text-slate-100">{applicantName}</h2>
-                    <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">{applicantTlds.length} {applicantTlds.length === 1 ? 'ansökan' : 'ansökningar'}</p>
+                >
+                  <div 
+                    className="w-full max-w-5xl max-h-full rounded-3xl shadow-2xl overflow-hidden flex flex-col bg-white dark:bg-slate-900"
+                    onClick={e => e.stopPropagation()}
+                  >
+                    <div className="overflow-y-auto w-full h-full">
+                      <TldDetailsPanel 
+                        item={tldData} 
+                        onClose={handleClosePopup}
+                        onOpenPopup={handleOpenTldPopup} 
+                        onApplicantClick={handleOpenApplicantPopup}
+                        hasBack={index > 0}
+                        onBack={handleBackPopup}
+                        previousPopup={prevPopup}
+                      />
+                    </div>
                   </div>
                 </div>
-                <button 
-                  onClick={handleClosePopup}
-                  className="p-2 -mr-2 rounded-full hover:bg-gray-100 dark:bg-slate-800 transition-colors"
-                >
-                  <X size={24} className="text-gray-500 dark:text-slate-400" />
-                </button>
-              </div>
+              );
+            }
+
+            if (popup.type === 'applicant') {
+              const applicantName = popup.id;
+              const applicantTlds = data.filter(tld => tld.applicants.some(a => a.applicantName === applicantName));
               
-              <div className="p-6 md:p-8 overflow-y-auto flex-1 w-full bg-gray-50 dark:bg-slate-800">
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                  {applicantTlds.map(item => {
-                    const colors = ColorMap[item.color];
-                    const appInfo = item.applicants.find(a => a.applicantName === applicantName)!;
-                    
-                    return (
-                      <div 
-                        key={item.tld}
-                        className={cn(
-                          "rounded-2xl p-4 flex flex-col shadow-sm border transition-all hover:scale-[1.02] cursor-pointer",
-                          colors.bg, colors.text, colors.border
-                        )}
-                        onClick={() => {
-                           handleOpenTldPopup(item.tld);
-                        }}
-                      >
-                        <div className="flex justify-between items-start mb-4">
-                          <h3 
-                            className={cn(
-                              "text-xl font-bold tracking-tight truncate", 
-                              previousPopup?.type === 'tld' && previousPopup.id === item.tld 
-                                ? (colors.text === 'text-white' ? "!text-fuchsia-200" : "!text-fuchsia-700") 
-                                : ""
-                            )} 
-                            title={item.tld}
+              return (
+                <div 
+                  key={`app-${index}-${popup.id}`}
+                  className={cn(
+                    "absolute inset-0 flex items-center justify-center p-4 md:p-8 transition-opacity duration-200",
+                    isActive ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+                  )}
+                >
+                  <div 
+                    className="w-full max-w-4xl bg-white dark:bg-slate-900 rounded-3xl shadow-2xl max-h-full flex flex-col overflow-hidden"
+                    onClick={e => e.stopPropagation()}
+                  >
+                    <div className="flex items-center justify-between p-6 md:px-8 md:pt-8 md:pb-6 border-b border-gray-100 dark:border-slate-800 shrink-0">
+                      <div className="flex items-center gap-4">
+                        {index > 0 && (
+                          <button
+                            onClick={handleBackPopup}
+                            className="p-2.5 rounded-full transition-colors duration-200 flex items-center justify-center shrink-0 bg-gray-100 hover:bg-gray-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-gray-700 dark:text-slate-300"
+                            aria-label="Tillbaka"
+                            title="Gå tillbaka"
                           >
-                            {item.tld}
-                          </h3>
-                          <span className="text-[9px] font-bold uppercase tracking-widest opacity-80 bg-black/10 px-2 py-1 rounded-md">
-                            {colors.label}
-                          </span>
-                        </div>
-                        
-                        <div className="mt-auto space-y-2">
-                          {appInfo.isPrimaryForThis && appInfo.primary && (
-                             <div className="text-xs bg-white/20 dark:bg-slate-900/20 backdrop-blur-sm p-2.5 rounded-xl flex items-center gap-2 font-medium shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] border border-black/5">
-                               <div className={cn("w-1.5 h-1.5 rounded-full shrink-0", appInfo.primary.status === 'Active' ? "bg-emerald-500" : "bg-red-500")} />
-                               Primär: {appInfo.primary.status}
-                             </div>
-                          )}
-                          {appInfo.isReplacementForThis && appInfo.replacement && (
-                             <div className="text-xs bg-black/10 backdrop-blur-sm p-2.5 rounded-xl flex items-center gap-2 font-medium border border-white/10">
-                               <div className={cn("w-1.5 h-1.5 rounded-full shrink-0", appInfo.replacement.status === 'Active' ? "bg-blue-500" : "bg-red-500")} />
-                               Reserv: {appInfo.replacement.status}
-                             </div>
-                          )}
+                            <ArrowLeft size={24} />
+                          </button>
+                        )}
+                        <div>
+                          <h2 className="text-2xl font-bold text-gray-900 dark:text-slate-100">{applicantName}</h2>
+                          <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">{applicantTlds.length} {applicantTlds.length === 1 ? 'ansökan' : 'ansökningar'}</p>
                         </div>
                       </div>
-                    );
-                  })}
+                      <button 
+                        onClick={handleClosePopup}
+                        className="p-2 -mr-2 rounded-full hover:bg-gray-100 dark:bg-slate-800 transition-colors"
+                      >
+                        <X size={24} className="text-gray-500 dark:text-slate-400" />
+                      </button>
+                    </div>
+                    
+                    <div className="p-6 md:p-8 overflow-y-auto flex-1 w-full bg-gray-50 dark:bg-slate-800">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                        {applicantTlds.map(item => {
+                          const colors = ColorMap[item.color];
+                          const appInfo = item.applicants.find(a => a.applicantName === applicantName)!;
+                          
+                          return (
+                            <div 
+                              key={item.tld}
+                              className={cn(
+                                "rounded-2xl p-4 flex flex-col shadow-sm border transition-all hover:scale-[1.02] cursor-pointer",
+                                colors.bg, colors.text, colors.border
+                              )}
+                              onClick={() => {
+                                 handleOpenTldPopup(item.tld);
+                              }}
+                            >
+                              <div className="flex justify-between items-start mb-4">
+                                <h3 
+                                  className={cn(
+                                    "text-xl font-bold tracking-tight truncate", 
+                                    prevPopup?.type === 'tld' && prevPopup.id === item.tld 
+                                      ? (colors.text === 'text-white' ? "!text-fuchsia-200" : "!text-fuchsia-700") 
+                                      : ""
+                                  )} 
+                                  title={item.tld}
+                                >
+                                  {item.tld}
+                                </h3>
+                                <span className="text-[9px] font-bold uppercase tracking-widest opacity-80 bg-black/10 px-2 py-1 rounded-md">
+                                  {colors.label}
+                                </span>
+                              </div>
+                              
+                              <div className="mt-auto space-y-2">
+                                {appInfo.isPrimaryForThis && appInfo.primary && (
+                                   <div className="text-xs bg-white/20 dark:bg-slate-900/20 backdrop-blur-sm p-2.5 rounded-xl flex items-center gap-2 font-medium shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] border border-black/5">
+                                     <div className={cn("w-1.5 h-1.5 rounded-full shrink-0", appInfo.primary.status === 'Active' ? "bg-emerald-500" : "bg-red-500")} />
+                                     Primär: {appInfo.primary.status}
+                                   </div>
+                                )}
+                                {appInfo.isReplacementForThis && appInfo.replacement && (
+                                   <div className="text-xs bg-black/10 backdrop-blur-sm p-2.5 rounded-xl flex items-center gap-2 font-medium border border-white/10">
+                                     <div className={cn("w-1.5 h-1.5 rounded-full shrink-0", appInfo.replacement.status === 'Active' ? "bg-blue-500" : "bg-red-500")} />
+                                     Reserv: {appInfo.replacement.status}
+                                   </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
+              );
+            }
+            return null;
+          })}
+        </div>
+      )}
 
       {/* Privacy Policy Modal */}
       {isPrivacyOpen && (
