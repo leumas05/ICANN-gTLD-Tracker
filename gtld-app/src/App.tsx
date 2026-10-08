@@ -796,10 +796,19 @@ export default function App() {
             <input 
               type="text" 
               placeholder="Sök på TLD eller företagsnamn..." 
-              className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 dark:border-slate-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-slate-900"
+              className="w-full pl-10 pr-10 py-3 rounded-xl border border-gray-200 dark:border-slate-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-slate-900"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
+            {search && (
+              <button 
+                onClick={() => setSearch('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-slate-500 hover:text-gray-600 dark:hover:text-slate-300 p-1 rounded-full transition-colors"
+                title="Rensa sökning"
+              >
+                <X size={18} />
+              </button>
+            )}
           </div>
           <div className="flex flex-col gap-3">
             {/* TLD Type Filters */}
