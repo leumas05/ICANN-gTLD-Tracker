@@ -1,48 +1,58 @@
-# ICANN gTLD Tracker
+# ICANN gTLD Tracker (2026)
 
-En modern webbapplikation för att visualisera, söka och analysera ICANNs nya gTLD-ansökningar (2026). 
-Applikationen är byggd med React, TypeScript, Tailwind CSS och Vite. Den läser in CSV-data direkt i webbläsaren och presenterar ansökningarna i ett responsivt gränssnitt.
+En modern och prestandaoptimerad webbapplikation för att visualisera, söka och analysera ICANNs nya gTLD-ansökningar (2026-rundan). Applikationen är byggd med React, TypeScript, Tailwind CSS och Vite, och erbjuder ett kraftfullt responsivt gränssnitt för att utforska domänkonflikter och ansökningsstatus.
 
-## Funktioner
-* **Dra-och-släpp CSV:** Importera gTLD-data lokalt utan att ladda upp till en server.
-* **Avancerad filtrering:** Filtrera på domäntyper (Brand, GEO, Community, IDN m.m.).
-* **Färgkodning & Status:** 
-  * Mörkgrön: Garanterad / Låst
-  * Ljusgrön: Hög sannolikhet
-  * Gul: Möjlig (krock)
-  * Mörkgul: Osannolik reserv
-  * Röd: Ute ur leken
-* **Region-/Land-sökning:** Hitta snabbt ansökningar från specifika geografiska områden.
-* **Prestanda-optimerad:** Hanterar tusentals ansökningar blixtsnabbt med React `useMemo`.
-* **Dark Mode:** Inbyggt och fullt stöd för mörkt tema som standard (med fallback till webbläsarens inställningar och manuell toggle).
+## Huvudfunktioner
 
-## Teknikstack
+* **Automatisk Datahämtning:** Applikationen letar automatiskt upp och laddar ner den allra senaste CSV-datan från vår server (`assets.s4m.dev`) vid uppstart, helt sekventiellt. Observera att datan inte hämtas live direkt från ICANN, utan från vår egna speglade datakälla.
+* **Manuell Uppladdning (Drag-and-Drop):** Stöd för lokal uppladdning av CSV-filer för testning av egna eller anpassade dataset direkt i webbläsaren.
+* **Smart Färgkodning & Status:** Algoritmer analyserar konflikter (contention sets) och kategoriserar varje ansökan baserat på konkurrens:
+  * **Mörkgrön:** Garanterad / Låst (Inga aktiva konkurrenter kvar)
+  * **Ljusgrön:** Hög sannolikhet (Aktiva konkurrenter har utvägar till reserver)
+  * **Gul:** Möjlig krock (Konkurrenter kan bli tvingade hit från andra förstahandsval)
+  * **Mörkgul:** Osannolik reserv (Konkurrenter får troligen sitt förstahandsval)
+  * **Röd:** Ute ur leken (Deaktiverad eller utslagen)
+* **Intelligenta Statusramar (Outlines):** Valbara ramar (Guld, Blå, Röd) som omedelbart indikerar om ett enskilt företag vunnit en strid, har möjlighet att byta till sin reserv, eller har förlorat, oavsett vilken TLD de kollar på.
+* **Avancerad Filtrering & Sortering:**
+  * Filtrera på domäntyper (Brand, GEO, Community, IDN).
+  * Fritextsökning på regioner och länder.
+  * Detaljerad sökning på specifika sökande (företag) med interaktiva popups.
+  * Sortera resultaten efter namn, färgkod, namnlängd eller antal sökande.
+* **Beständiga Inställningar:** Användarens val av sortering, ram-visning och mörkt/ljust tema sparas lokalt (`localStorage`) i webbläsaren.
+* **Mörkt Tema:** Inbyggt Dark Mode som respekterar systeminställningar men även kan växlas manuellt av användaren.
+
+## Teknisk Stack
+
 * **Frontend:** React 18, TypeScript, Tailwind CSS v3
-* **Ikoner:** Lucide React
-* **Parsning:** PapaParse (för CSV-filer)
+* **Komponenter & Ikoner:** Lucide React
+* **Databehandling:** PapaParse (för effektiv CSV-analys)
 * **Byggverktyg:** Vite
 
-## Kom igång för utveckling
+## Kom Igång
 
-1. Klona arkivet
-2. Installera beroenden:
+För att köra projektet lokalt krävs Node.js.
+
+1. Klona arkivet till din maskin.
+2. Navigera in i projektmappen (`gtld-app`).
+3. Installera alla nödvändiga beroenden:
    ```bash
    npm install
    ```
-3. Starta utvecklingsservern:
+4. Starta utvecklingsservern:
    ```bash
    npm run dev
    ```
 
 ## Publicering
 
-Det här projektet är optimerat för att publiceras som en statisk webbplats, till exempel via **Cloudflare Pages**. 
+Projektet är helt statiskt (Client-Side Rendering) utan krav på en backend och är optimerat för plattformar som Cloudflare Pages, Vercel eller Netlify.
 
-För att bygga projektet lokalt:
+För att bygga en produktionsklar version:
 ```bash
 npm run build
 ```
-Detta genererar en minifierad produktionsversion i `dist/`-mappen.
+Resultatet hamnar i mappen `dist/` och kan laddas upp direkt till valfritt webbhotell eller statisk värd.
 
-## Licens
-Skapad av S4m.dev
+## Om Projektet
+
+Skapad och underhållen av S4m.dev. Besök gärna projektet live på tld.s4m.dev.
