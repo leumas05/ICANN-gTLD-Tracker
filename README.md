@@ -55,4 +55,4 @@ Resultatet hamnar i mappen `dist/` och kan laddas upp direkt till valfritt webbh
 
 ## Om Projektet
 
-Skapad och underhållen av S4m.dev. Besök gärna projektet live på tld.s4m.dev.
+Skapad och underhållen av [S4m.dev](https://www.s4m.dev/). Besök gärna projektet live på [tld.s4m.dev](https://tld.s4m.dev/).
