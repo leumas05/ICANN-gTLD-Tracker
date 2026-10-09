@@ -1575,15 +1575,33 @@ export default function App() {
                               
                               <div className="mt-auto space-y-2">
                                 {appInfo.isPrimaryForThis && appInfo.primary && (
-                                   <div className="text-xs bg-white/20 dark:bg-slate-900/20 backdrop-blur-sm p-2.5 rounded-xl flex items-center gap-2 font-medium shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] border border-black/5">
-                                     <div className={cn("w-1.5 h-1.5 rounded-full shrink-0", appInfo.primary.status === 'Active' ? "bg-emerald-500" : "bg-red-500")} />
-                                     Primär: {appInfo.primary.status}
+                                   <div className="text-xs bg-white/20 dark:bg-slate-900/20 backdrop-blur-sm p-2.5 rounded-xl flex items-center flex-wrap gap-2 font-medium shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] border border-black/5">
+                                     <div className="flex items-center gap-2 shrink-0">
+                                       <div className={cn("w-1.5 h-1.5 rounded-full shrink-0", appInfo.primary.status === 'Active' ? "bg-emerald-500" : "bg-red-500")} />
+                                       Primär: {appInfo.primary.status}
+                                     </div>
+                                     {appInfo.primary.allTypes.filter(t => t !== 'Andra').length > 0 && (
+                                       <div className="flex items-center gap-1.5 ml-auto flex-wrap justify-end">
+                                         {appInfo.primary.allTypes.filter(t => t !== 'Andra').map((t, idx) => (
+                                           <span key={idx} className="bg-black/10 dark:bg-black/30 px-1.5 py-0.5 rounded-md opacity-90 text-[10px] uppercase tracking-wider">{t}</span>
+                                         ))}
+                                       </div>
+                                     )}
                                    </div>
                                 )}
                                 {appInfo.isReplacementForThis && appInfo.replacement && (
-                                   <div className="text-xs bg-black/10 backdrop-blur-sm p-2.5 rounded-xl flex items-center gap-2 font-medium border border-white/10">
-                                     <div className={cn("w-1.5 h-1.5 rounded-full shrink-0", appInfo.replacement.status === 'Active' ? "bg-blue-500" : "bg-red-500")} />
-                                     Reserv: {appInfo.replacement.status}
+                                   <div className="text-xs bg-black/10 backdrop-blur-sm p-2.5 rounded-xl flex items-center flex-wrap gap-2 font-medium border border-white/10">
+                                     <div className="flex items-center gap-2 shrink-0">
+                                       <div className={cn("w-1.5 h-1.5 rounded-full shrink-0", appInfo.replacement.status === 'Active' ? "bg-blue-500" : "bg-red-500")} />
+                                       Reserv: {appInfo.replacement.status}
+                                     </div>
+                                     {appInfo.replacement.allTypes.filter(t => t !== 'Andra').length > 0 && (
+                                       <div className="flex items-center gap-1.5 ml-auto flex-wrap justify-end">
+                                         {appInfo.replacement.allTypes.filter(t => t !== 'Andra').map((t, idx) => (
+                                           <span key={idx} className="bg-black/10 dark:bg-black/30 px-1.5 py-0.5 rounded-md opacity-90 text-[10px] uppercase tracking-wider">{t}</span>
+                                         ))}
+                                       </div>
+                                     )}
                                    </div>
                                 )}
                               </div>
