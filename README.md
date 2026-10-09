@@ -6,12 +6,12 @@ En modern och prestandaoptimerad webbapplikation för att visualisera, söka och
 
 * **Automatisk Datahämtning:** Applikationen letar automatiskt upp och laddar ner den allra senaste CSV-datan från vår server (`assets.s4m.dev`) vid uppstart, helt sekventiellt. Observera att datan inte hämtas live direkt från ICANN, utan från vår egna speglade datakälla.
 * **Manuell Uppladdning (Drag-and-Drop):** Stöd för lokal uppladdning av CSV-filer för testning av egna eller anpassade dataset direkt i webbläsaren.
-* **Smart Färgkodning & Status:** Algoritmer analyserar konflikter (contention sets) och kategoriserar varje ansökan baserat på konkurrens:
-  * **Mörkgrön:** Garanterad / Låst (Inga aktiva konkurrenter kvar)
-  * **Ljusgrön:** Hög sannolikhet (Aktiva konkurrenter har utvägar till reserver)
-  * **Gul:** Möjlig krock (Konkurrenter kan bli tvingade hit från andra förstahandsval)
-  * **Mörkgul:** Osannolik reserv (Konkurrenter får troligen sitt förstahandsval)
-  * **Röd:** Ute ur leken (Deaktiverad eller utslagen)
+* **Smart Färgkodning & Status:** Algoritmer analyserar konflikter (contention sets) och kategoriserar varje TLD (domän) baserat på dess chanser att bli delegerad:
+  * **Mörkgrön:** Garanterad / Låst (Denna TLD är säker och kommer garanterat att delegeras till någon)
+  * **Ljusgrön:** Hög sannolikhet (Är ett aktivt förstahandsval, men alla sökande har fortfarande möjlighet att byta till sin reserv)
+  * **Gul:** Möjlig krock (Är endast en reserv, men sökande kan bli tvingade hit på grund av konkurrens på deras förstahandsval)
+  * **Mörkgul:** Osannolik reserv (Är endast en reserv, och de sökande får troligen sina förstahandsval istället)
+  * **Röd:** Ute ur leken (Inga aktiva ansökningar finns kvar, TLD:n kommer inte att delegeras)
 * **Intelligenta Statusramar (Outlines):** Valbara ramar (Guld, Blå, Röd) som omedelbart indikerar om ett enskilt företag vunnit en strid, har möjlighet att byta till sin reserv, eller har förlorat, oavsett vilken TLD de kollar på.
 * **Avancerad Filtrering & Sortering:**
   * Filtrera på domäntyper (Brand, GEO, Community, IDN).
