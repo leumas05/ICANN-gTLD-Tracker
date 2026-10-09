@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import Papa from 'papaparse';
-import { Search, Info, Upload, X, Filter, Palette, ExternalLink, ArrowRight, ArrowLeft, Sun, Moon, ArrowDownUp, ChevronDown, Check } from 'lucide-react';
+import { Search, Info, Upload, Download, X, Filter, Palette, ExternalLink, ArrowRight, ArrowLeft, Sun, Moon, ArrowDownUp, ChevronDown, Check } from 'lucide-react';
 import clsx from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -587,6 +587,39 @@ export default function App() {
     }
     return true; // Default to dark theme
   });
+
+  const [isLoadingLatest, setIsLoadingLatest] = useState(false);
+
+  const fetchLatestData = async () => {
+    setIsLoadingLatest(true);
+    let currentVersion = 1;
+    let lastSuccessText = '';
+
+    try {
+      while (true) {
+        const url = `https://assets.s4m.dev/assets/CSV/ICANN/2026/${currentVersion}.gtld-applications.csv`;
+        const response = await fetch(url);
+        if (!response.ok) {
+          break;
+        }
+        lastSuccessText = await response.text();
+        currentVersion++;
+      }
+      
+      if (lastSuccessText) {
+        setData(parseData(lastSuccessText));
+        setExpandedTld(null);
+        handleClosePopup();
+      } else {
+        alert("Kunde inte hitta någon data på servern.");
+      }
+    } catch (error) {
+      console.error("Fetch error:", error);
+      alert("Ett fel uppstod vid hämtning av senaste datan.");
+    } finally {
+      setIsLoadingLatest(false);
+    }
+  };
 
   useEffect(() => {
     if (isDarkMode) {
@@ -1236,34 +1269,63 @@ export default function App() {
       )}
 
       {data.length === 0 ? (
-        <div 
-          className={cn(
-            "text-center py-24 px-6 rounded-3xl border-2 border-dashed transition-all duration-200 flex flex-col items-center justify-center",
-            isDragging 
-              ? "bg-indigo-50 dark:bg-indigo-900/20 border-indigo-400 dark:border-indigo-500 scale-[1.02] shadow-xl" 
-              : "bg-white dark:bg-slate-900 border-gray-300 dark:border-slate-700 shadow-sm hover:border-gray-400 dark:hover:border-slate-600"
-          )}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-        >
-          <div className={cn(
-            "w-20 h-20 rounded-full flex items-center justify-center mb-6 transition-colors duration-200",
-            isDragging ? "bg-indigo-100 dark:bg-indigo-800" : "bg-gray-100 dark:bg-slate-800"
-          )}>
-            <Upload size={32} className={isDragging ? "text-indigo-600 dark:text-indigo-400" : "text-gray-400 dark:text-slate-500"} />
+        <div className="flex flex-col items-center justify-center py-12 gap-8 w-full">
+          {/* Big nice button */}
+          <button
+            onClick={fetchLatestData}
+            disabled={isLoadingLatest}
+            className={cn(
+              "relative overflow-hidden group px-12 py-8 rounded-3xl text-white font-bold text-2xl md:text-3xl shadow-[0_8px_30px_rgb(79,70,229,0.3)] hover:shadow-[0_12px_40px_rgb(79,70,229,0.5)] transition-all duration-300 hover:-translate-y-1 flex items-center justify-center gap-5 bg-gradient-to-br from-indigo-600 to-fuchsia-600 w-full max-w-2xl",
+              isLoadingLatest && "opacity-80 pointer-events-none"
+            )}
+          >
+            <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out" />
+            
+            {isLoadingLatest ? (
+              <div className="animate-spin rounded-full h-8 w-8 border-b-4 border-white shrink-0"></div>
+            ) : (
+              <Download size={36} className="group-hover:scale-110 transition-transform shrink-0" />
+            )}
+            <span className="relative z-10">
+              {isLoadingLatest ? 'Hämtar senaste datan...' : 'Hämta den senaste datan'}
+            </span>
+          </button>
+
+          <div className="flex items-center gap-4 w-full max-w-2xl opacity-60">
+            <div className="h-px bg-gray-400 dark:bg-slate-600 flex-1"></div>
+            <span className="text-sm font-semibold uppercase tracking-widest text-gray-500 dark:text-slate-400">Eller ladda upp manuellt</span>
+            <div className="h-px bg-gray-400 dark:bg-slate-600 flex-1"></div>
           </div>
-          <h3 className="text-xl font-bold text-gray-900 dark:text-slate-100 mb-2">
-            {isDragging ? "Släpp filen här!" : "Dra och släpp din CSV-fil här"}
-          </h3>
-          <p className="text-gray-500 dark:text-slate-400 mb-8 max-w-sm">
-            Du kan också klicka på knappen högst upp till höger, eller knappen nedan, för att bläddra efter filer.
-          </p>
-          <label className="px-6 py-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition cursor-pointer flex items-center gap-2 font-semibold shadow-md hover:shadow-lg hover:-translate-y-0.5">
-            <Upload size={18} />
-            Välj en fil
-            <input type="file" accept=".csv" className="hidden" onChange={handleFileUpload} />
-          </label>
+
+          <div 
+            className={cn(
+              "w-full max-w-2xl text-center py-16 px-6 rounded-3xl border-2 border-dashed transition-all duration-200 flex flex-col items-center justify-center",
+              isDragging 
+                ? "bg-indigo-50 dark:bg-indigo-900/20 border-indigo-400 dark:border-indigo-500 scale-[1.02] shadow-xl" 
+                : "bg-white dark:bg-slate-900 border-gray-300 dark:border-slate-700 shadow-sm hover:border-gray-400 dark:hover:border-slate-600"
+            )}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+          >
+            <div className={cn(
+              "w-16 h-16 rounded-full flex items-center justify-center mb-6 transition-colors duration-200",
+              isDragging ? "bg-indigo-100 dark:bg-indigo-800" : "bg-gray-100 dark:bg-slate-800"
+            )}>
+              <Upload size={28} className={isDragging ? "text-indigo-600 dark:text-indigo-400" : "text-gray-400 dark:text-slate-500"} />
+            </div>
+            <h3 className="text-xl font-bold text-gray-900 dark:text-slate-100 mb-2">
+              {isDragging ? "Släpp filen här!" : "Dra och släpp din CSV-fil här"}
+            </h3>
+            <p className="text-gray-500 dark:text-slate-400 mb-8 max-w-sm">
+              Du kan också klicka på knappen nedan för att bläddra efter filer.
+            </p>
+            <label className="px-6 py-3 bg-gray-100 text-gray-700 dark:bg-slate-800 dark:text-slate-300 rounded-xl hover:bg-gray-200 dark:hover:bg-slate-700 transition cursor-pointer flex items-center gap-2 font-semibold shadow-sm hover:shadow">
+              <Upload size={18} />
+              Välj en fil
+              <input type="file" accept=".csv" className="hidden" onChange={handleFileUpload} />
+            </label>
+          </div>
         </div>
       ) : (
         <div className="flex flex-col gap-4">
