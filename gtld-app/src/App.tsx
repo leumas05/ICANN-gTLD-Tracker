@@ -44,13 +44,15 @@ interface CsvRow {
   'Region': string;
 }
 
+type AppStatus = 'Active' | 'Deactivated' | 'Withdrawn';
+
 interface AppData {
   baseId: string;
   applicantName: string;
   location: string;
   region: string;
-  primary: { tld: string; status: 'Active' | 'Deactivated'; types: string[]; allTypes: string[]; appId: string } | null;
-  replacement: { tld: string; status: 'Active' | 'Deactivated'; types: string[]; allTypes: string[]; appId: string } | null;
+  primary: { tld: string; status: AppStatus; types: string[]; allTypes: string[]; appId: string } | null;
+  replacement: { tld: string; status: AppStatus; types: string[]; allTypes: string[]; appId: string } | null;
 }
 
 type ColorType = 'DarkGreen' | 'LightGreen' | 'Yellow' | 'DarkYellow' | 'Red';
@@ -67,8 +69,8 @@ interface TldInfo {
     region: string;
     isPrimaryForThis: boolean;
     isReplacementForThis: boolean;
-    primary: { tld: string, status: string, types: string[], allTypes: string[], appId: string } | null;
-    replacement: { tld: string, status: string, types: string[], allTypes: string[], appId: string } | null;
+    primary: { tld: string, status: AppStatus, types: string[], allTypes: string[], appId: string } | null;
+    replacement: { tld: string, status: AppStatus, types: string[], allTypes: string[], appId: string } | null;
   }[];
 }
 
@@ -113,7 +115,7 @@ const parseData = (csvText: string): TldInfo[] => {
       tld = '.' + tld;
     }
 
-    const status = row['Application Status']?.trim() as 'Active' | 'Deactivated';
+    const status = row['Application Status']?.trim() as AppStatus;
 
     const brand = row['TLD Type: Brand']?.trim().toUpperCase() === 'TRUE';
     const geoSelf = row['TLD Type: Geo (Self-Designated)']?.trim().toUpperCase() === 'TRUE';
@@ -191,33 +193,53 @@ const parseData = (csvText: string): TldInfo[] => {
 
     if (!isActiveSomewhere) {
       color = 'Red';
-      reason = `Alla ansökningar för denna TLD har status Deactivated. Ingen är kvar i racet.`;
+      const hasPrimaryDeactivatedToReserve = involvedApps.some(
+        app => app.primary?.tld === tld && app.primary.status !== 'Active' && app.replacement?.status === 'Active'
+      );
+      const hasWithdrawnForThis = involvedApps.some(
+        app => (app.primary?.tld === tld && app.primary.status === 'Withdrawn') ||
+               (app.replacement?.tld === tld && app.replacement.status === 'Withdrawn')
+      );
+      if (hasPrimaryDeactivatedToReserve) {
+        const switchedApp = involvedApps.find(
+          app => app.primary?.tld === tld && app.primary.status !== 'Active' && app.replacement?.status === 'Active'
+        )!;
+        reason = `Sökanden (${switchedApp.applicantName}) har deaktiverat sitt förstaval och bytt till sin reservsträng (${switchedApp.replacement?.tld}). Ingen aktiv sökande finns kvar för denna TLD.`;
+      } else if (hasWithdrawnForThis) {
+        reason = `Samtliga ansökningar för denna TLD har dragits tillbaka (Withdrawn) eller deaktiverats. Ingen är kvar i racet.`;
+      } else {
+        reason = `Alla ansökningar för denna TLD har status Deactivated. Ingen är kvar i racet.`;
+      }
     } else {
       const activePrimaryApps = involvedApps.filter(app => app.primary?.tld === tld && app.primary.status === 'Active');
+      const activeReplacementApps = involvedApps.filter(app => app.replacement?.tld === tld && app.replacement.status === 'Active');
       
-      if (activePrimaryApps.length > 0) {
-        const hasLockedApplicant = activePrimaryApps.some(app => !app.replacement || app.replacement.status === 'Deactivated');
-        
-        if (hasLockedApplicant) {
-          color = 'DarkGreen';
-          const lockedApp = activePrimaryApps.find(app => !app.replacement || app.replacement.status === 'Deactivated')!;
-          reason = `Minst en sökande (${lockedApp.applicantName}) har denna som aktivt förstaval och deras reservsträng är deaktiverad (eller saknas). De är låsta till denna TLD.`;
-        } else {
-          color = 'LightGreen';
-          reason = `Denna TLD är ett aktivt förstaval för minst en sökande, men alla dessa har fortfarande en aktiv reserv kvar som de potentiellt kan hoppa till.`;
+      const lockedPrimaryApp = activePrimaryApps.find(app => !app.replacement || app.replacement.status !== 'Active');
+      const lockedReplacementApp = activeReplacementApps.find(app => !app.primary || app.primary.status !== 'Active');
+
+      if (lockedPrimaryApp || lockedReplacementApp) {
+        color = 'DarkGreen';
+        if (lockedPrimaryApp) {
+          const rStatus = lockedPrimaryApp.replacement?.status === 'Withdrawn' ? 'tillbakadragen (Withdrawn)' : 'deaktiverad (eller saknas)';
+          reason = `Minst en sökande (${lockedPrimaryApp.applicantName}) har denna som aktivt förstaval och deras reservsträng är ${rStatus}. De är låsta till denna TLD.`;
+        } else if (lockedReplacementApp) {
+          const pTld = lockedReplacementApp.primary?.tld;
+          const pStatus = lockedReplacementApp.primary?.status === 'Withdrawn' ? 'dragits tillbaka (Withdrawn)' : 'deaktiverats';
+          reason = `Sökanden (${lockedReplacementApp.applicantName}) har bytt till denna reservsträng efter att deras förstaval${pTld ? ` (${pTld})` : ''} har ${pStatus}. De är nu låsta till denna TLD.`;
         }
+      } else if (activePrimaryApps.length > 0) {
+        color = 'LightGreen';
+        reason = `Denna TLD är ett aktivt förstaval för minst en sökande, men alla dessa har fortfarande en aktiv reserv kvar som de potentiellt kan hoppa till.`;
       } else {
-        const activeReplacementApps = involvedApps.filter(app => app.replacement?.tld === tld && app.replacement.status === 'Active');
-        
         const hasHighContentionPrimary = activeReplacementApps.some(app => {
-          if (!app.primary) return false;
+          if (!app.primary || app.primary.status !== 'Active') return false;
           return (contentionLevel.get(app.primary.tld) || 0) > 1;
         });
 
         if (hasHighContentionPrimary) {
           color = 'Yellow';
           const highContApp = activeReplacementApps.find(app => {
-            if (!app.primary) return false;
+            if (!app.primary || app.primary.status !== 'Active') return false;
             return (contentionLevel.get(app.primary.tld) || 0) > 1;
           })!;
           reason = `Denna TLD är enbart en aktiv reserv, men sökanden (${highContApp.applicantName}) har hög konkurrens på sitt förstaval (${highContApp.primary?.tld}) och kan tvingas flytta hit.`;
@@ -275,28 +297,36 @@ const APPLICANT_SORT_LABELS: Record<ApplicantSortOption, string> = {
   'color': 'Status (Färgkod)'
 };
 
+function getApplicantEntryOutline(item: TldInfo, appInfo: TldInfo['applicants'][number]): 'gold' | 'blue' | 'red' | 'none' {
+  if (item.color !== 'DarkGreen' && item.color !== 'LightGreen') return 'none';
+  const activeApplicants = item.applicants.filter(
+    a => (a.isPrimaryForThis && a.primary?.status === 'Active') ||
+         (a.isReplacementForThis && a.replacement?.status === 'Active')
+  );
+  const isThisActive =
+    (appInfo.isPrimaryForThis && appInfo.primary?.status === 'Active') ||
+    (appInfo.isReplacementForThis && appInfo.replacement?.status === 'Active');
+
+  if (!isThisActive) return 'red';
+
+  if (activeApplicants.length === 1) {
+    const isOtherActive = appInfo.isPrimaryForThis
+      ? appInfo.replacement?.status === 'Active'
+      : appInfo.primary?.status === 'Active';
+    return isOtherActive ? 'blue' : 'gold';
+  }
+  return 'none';
+}
+
 function getApplicantOutline(item: TldInfo, applicantName: string): 'gold' | 'blue' | 'red' | 'none' {
   if (item.color !== 'DarkGreen' && item.color !== 'LightGreen') return 'none';
-  const appInfo = item.applicants.find(a => a.applicantName === applicantName);
-  if (!appInfo) return 'none';
-  const activePrimaries = item.applicants.filter(a => a.isPrimaryForThis && a.primary?.status === 'Active');
-  const activeReserves = item.applicants.filter(a => a.isReplacementForThis && a.replacement?.status === 'Active');
-  const isMatchAmongPrimaries = activePrimaries.length > 0;
-  let isOnlyOneLeft = false;
-  let isOtherActive = false;
-  let cannotWin = false;
-  if (isMatchAmongPrimaries) {
-    isOnlyOneLeft = activePrimaries.length === 1 && appInfo.isPrimaryForThis && appInfo.primary?.status === 'Active';
-    isOtherActive = appInfo.replacement?.status === 'Active';
-    cannotWin = !appInfo.isPrimaryForThis || appInfo.primary?.status !== 'Active';
-  } else {
-    isOnlyOneLeft = activeReserves.length === 1 && appInfo.isReplacementForThis && appInfo.replacement?.status === 'Active';
-    isOtherActive = appInfo.primary?.status === 'Active';
-    cannotWin = false;
-  }
-  if (isOnlyOneLeft) return isOtherActive ? 'blue' : 'gold';
-  if (cannotWin) return 'red';
-  return 'none';
+  const appInfos = item.applicants.filter(a => a.applicantName === applicantName);
+  if (appInfos.length === 0) return 'none';
+  const appInfo = appInfos.find(
+    a => (a.isPrimaryForThis && a.primary?.status === 'Active') ||
+         (a.isReplacementForThis && a.replacement?.status === 'Active')
+  ) || appInfos[0];
+  return getApplicantEntryOutline(item, appInfo);
 }
 
 const ToggleCheckbox = ({ checked, onChange, label, className }: { checked: boolean, onChange: (val: boolean) => void, label: string, className?: string }) => (
@@ -418,35 +448,17 @@ const TldDetailsPanel = ({
             </h4>
             
             <div className="grid sm:grid-cols-2 gap-4">
-              {(() => {
-                const activePrimaries = item.applicants.filter(a => a.isPrimaryForThis && a.primary?.status === 'Active');
-                const activeReserves = item.applicants.filter(a => a.isReplacementForThis && a.replacement?.status === 'Active');
-                const isMatchAmongPrimaries = activePrimaries.length > 0;
-                
-                return item.applicants.map((app, i) => {
-                  let isOnlyOneLeft = false;
-                  let isOtherActive = false;
-                  let cannotWin = false;
-
-                  if (isMatchAmongPrimaries) {
-                    isOnlyOneLeft = activePrimaries.length === 1 && app.isPrimaryForThis && app.primary?.status === 'Active';
-                    isOtherActive = app.replacement?.status === 'Active';
-                    cannotWin = !app.isPrimaryForThis || app.primary?.status !== 'Active';
-                  } else {
-                    isOnlyOneLeft = activeReserves.length === 1 && app.isReplacementForThis && app.replacement?.status === 'Active';
-                    isOtherActive = app.primary?.status === 'Active';
-                    cannotWin = false;
-                  }
-                  
-                  const ringClass = (showOutlines && (item.color === 'DarkGreen' || item.color === 'LightGreen'))
-                    ? (isOnlyOneLeft 
-                        ? (isOtherActive
-                            ? "ring-2 ring-sky-400 dark:ring-sky-400 shadow-[0_0_15px_rgba(56,189,248,0.3)] relative z-10"
-                            : "ring-2 ring-amber-400 dark:ring-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.35)] relative z-10")
-                        : cannotWin
-                          ? "ring-2 ring-red-500 dark:ring-red-500 shadow-[0_0_15px_rgba(239,68,68,0.25)] relative z-10"
-                          : "")
-                    : "";
+              {item.applicants.map((app, i) => {
+                const outline = getApplicantEntryOutline(item, app);
+                const ringClass = showOutlines
+                  ? outline === 'blue'
+                    ? "ring-2 ring-sky-400 dark:ring-sky-400 shadow-[0_0_15px_rgba(56,189,248,0.3)] relative z-10"
+                    : outline === 'gold'
+                      ? "ring-2 ring-amber-400 dark:ring-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.35)] relative z-10"
+                      : outline === 'red'
+                        ? "ring-2 ring-red-500 dark:ring-red-500 shadow-[0_0_15px_rgba(239,68,68,0.25)] relative z-10"
+                        : ""
+                  : "";
 
                 return (
                 <div 
@@ -485,7 +497,7 @@ const TldDetailsPanel = ({
                         rel="noreferrer"
                         className={cn(
                           "px-3 py-1.5 rounded-lg text-white font-medium shadow-sm flex items-center gap-2 text-sm self-start hover:opacity-90 transition-opacity cursor-pointer group/link",
-                          app.primary.status === 'Active' ? "bg-emerald-600" : "bg-red-500"
+                          app.primary.status === 'Active' ? "bg-emerald-600" : app.primary.status === 'Withdrawn' ? "bg-slate-600" : "bg-red-500"
                         )}
                         title="Se ansökan på ICANN"
                       >
@@ -502,7 +514,7 @@ const TldDetailsPanel = ({
                         rel="noreferrer"
                         className={cn(
                           "px-3 py-1.5 rounded-lg text-white font-medium shadow-sm flex items-center gap-2 text-sm self-start hover:opacity-90 transition-opacity cursor-pointer group/link",
-                          app.replacement.status === 'Active' ? "bg-blue-600" : "bg-red-500"
+                          app.replacement.status === 'Active' ? "bg-blue-600" : app.replacement.status === 'Withdrawn' ? "bg-slate-600" : "bg-red-500"
                         )}
                         title="Se ansökan på ICANN"
                       >
@@ -559,8 +571,7 @@ const TldDetailsPanel = ({
                   )}
                 </div>
               );
-            });
-          })()}
+            })}
             </div>
           </div>
         </div>
@@ -1514,34 +1525,21 @@ export default function App() {
                       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                         {applicantTlds.map(item => {
                           const colors = ColorMap[item.color];
-                          const appInfo = item.applicants.find(a => a.applicantName === applicantName)!;
+                          const appInfos = item.applicants.filter(a => a.applicantName === applicantName);
+                          const appInfo = appInfos.find(
+                            a => (a.isPrimaryForThis && a.primary?.status === 'Active') ||
+                                 (a.isReplacementForThis && a.replacement?.status === 'Active')
+                          ) || appInfos[0];
                           
-                          const activePrimaries = item.applicants.filter(a => a.isPrimaryForThis && a.primary?.status === 'Active');
-                          const activeReserves = item.applicants.filter(a => a.isReplacementForThis && a.replacement?.status === 'Active');
-                          const isMatchAmongPrimaries = activePrimaries.length > 0;
-                          
-                          let isOnlyOneLeft = false;
-                          let isOtherActive = false;
-                          let cannotWin = false;
-
-                          if (isMatchAmongPrimaries) {
-                            isOnlyOneLeft = activePrimaries.length === 1 && appInfo.isPrimaryForThis && appInfo.primary?.status === 'Active';
-                            isOtherActive = appInfo.replacement?.status === 'Active';
-                            cannotWin = !appInfo.isPrimaryForThis || appInfo.primary?.status !== 'Active';
-                          } else {
-                            isOnlyOneLeft = activeReserves.length === 1 && appInfo.isReplacementForThis && appInfo.replacement?.status === 'Active';
-                            isOtherActive = appInfo.primary?.status === 'Active';
-                            cannotWin = false;
-                          }
-
-                          const ringClass = (showOutlines && (item.color === 'DarkGreen' || item.color === 'LightGreen'))
-                            ? (isOnlyOneLeft 
-                                ? (isOtherActive
-                                    ? "ring-2 ring-sky-400 dark:ring-sky-400 shadow-[0_0_15px_rgba(56,189,248,0.3)] relative z-10"
-                                    : "ring-2 ring-amber-400 dark:ring-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.35)] relative z-10")
-                                : cannotWin
+                          const outline = getApplicantEntryOutline(item, appInfo);
+                          const ringClass = showOutlines
+                            ? outline === 'blue'
+                              ? "ring-2 ring-sky-400 dark:ring-sky-400 shadow-[0_0_15px_rgba(56,189,248,0.3)] relative z-10"
+                              : outline === 'gold'
+                                ? "ring-2 ring-amber-400 dark:ring-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.35)] relative z-10"
+                                : outline === 'red'
                                   ? "ring-2 ring-red-500 dark:ring-red-500 shadow-[0_0_15px_rgba(239,68,68,0.25)] relative z-10"
-                                  : "")
+                                  : ""
                             : "";
                           
                           return (
@@ -1577,7 +1575,7 @@ export default function App() {
                                 {appInfo.isPrimaryForThis && appInfo.primary && (
                                    <div className="text-xs bg-white/20 dark:bg-slate-900/20 backdrop-blur-sm p-2.5 rounded-xl flex items-center flex-wrap gap-2 font-medium shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] border border-black/5">
                                      <div className="flex items-center gap-2 shrink-0">
-                                       <div className={cn("w-1.5 h-1.5 rounded-full shrink-0", appInfo.primary.status === 'Active' ? "bg-emerald-500" : "bg-red-500")} />
+                                       <div className={cn("w-1.5 h-1.5 rounded-full shrink-0", appInfo.primary.status === 'Active' ? "bg-emerald-500" : appInfo.primary.status === 'Withdrawn' ? "bg-slate-400" : "bg-red-500")} />
                                        Primär: {appInfo.primary.status}
                                      </div>
                                      {appInfo.primary.allTypes.filter(t => t !== 'Andra').length > 0 && (
@@ -1592,7 +1590,7 @@ export default function App() {
                                 {appInfo.isReplacementForThis && appInfo.replacement && (
                                    <div className="text-xs bg-black/10 backdrop-blur-sm p-2.5 rounded-xl flex items-center flex-wrap gap-2 font-medium border border-white/10">
                                      <div className="flex items-center gap-2 shrink-0">
-                                       <div className={cn("w-1.5 h-1.5 rounded-full shrink-0", appInfo.replacement.status === 'Active' ? "bg-blue-500" : "bg-red-500")} />
+                                       <div className={cn("w-1.5 h-1.5 rounded-full shrink-0", appInfo.replacement.status === 'Active' ? "bg-blue-500" : appInfo.replacement.status === 'Withdrawn' ? "bg-slate-400" : "bg-red-500")} />
                                        Reserv: {appInfo.replacement.status}
                                      </div>
                                      {appInfo.replacement.allTypes.filter(t => t !== 'Andra').length > 0 && (
